@@ -12,89 +12,72 @@
 </head>
 <body>
 
+<div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
 <header>
   <div class="navbar wrap">
-    <div class="brand">Pertama Manager <span>ID</span></div>
-    <a class="nav-cta" href="https://fastxgaming.github.io/studio-game/" target="_blank" rel="noopener">Main Sekarang</a>
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 21V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v15"/><path d="M4 11h8"/><path d="M14 9h2.5L19 12v5a1.5 1.5 0 0 1-1.5 1.5H18"/><circle cx="17.5" cy="17" r="1.4"/></svg>
+      Pertama Manager <span>ID</span>
+    </div>
   </div>
 </header>
 
 <section class="hero">
-  <div class="hazard-strip" aria-hidden="true"></div>
-  <div class="wrap hero-grid">
-    <div class="hero-copy">
-      <p class="route-code">KILANG TUBAN <span>&rarr;</span> SELURUH NUSANTARA</p>
-      <h1>Bangun kerajaan distribusi BBM &amp; LPG-mu sendiri.</h1>
-      <p class="lede">Mulai dari satu kilang pusat dengan modal Rp 650 juta, kelola armada truk, rekrut kru, penuhi pesanan SPBU di seluruh Indonesia, dan naik ke puncak leaderboard — semua langsung dari browser.</p>
-      <div class="cta-row">
-        <a class="btn-play" href="https://fastxgaming.github.io/studio-game/" target="_blank" rel="noopener">Main Sekarang di Browser</a>
-        <span class="pill">Aplikasi mobile: segera hadir</span>
-      </div>
-      <div class="stat-row">
-        <div class="stat"><b>Rp 650jt</b><span>Modal awal perusahaan</span></div>
-        <div class="stat"><b>270+</b><span>SPBU di 60 kota</span></div>
-        <div class="stat"><b>BBM + LPG</b><span>Dua lini distribusi</span></div>
-      </div>
-    </div>
-
-    <div class="waybill" role="img" aria-label="Contoh surat jalan pengiriman dalam game">
-      <div class="waybill-head">
-        <span>SURAT JALAN</span>
-        <span id="spk">SPK-000417</span>
-      </div>
-      <dl class="waybill-body">
-        <div><dt>Kargo</dt><dd>Pertalite &middot; 8.000 L</dd></div>
-        <div><dt>Truk</dt><dd>B 9042 TUB</dd></div>
-        <div><dt>Kru</dt><dd>Sutrisno &amp; Bagas</dd></div>
-        <div><dt>Tujuan</dt><dd>SPBU Cikampek KM 62</dd></div>
-        <div><dt>ETA</dt><dd id="eta">14 menit</dd></div>
-      </dl>
-      <div class="waybill-status">
-        <span class="dot"></span> Dalam perjalanan
-      </div>
-    </div>
+  <div class="wrap hero-inner">
+    <h1 class="fade-up d1">Bangun kerajaan distribusi BBM &amp; LPG-mu sendiri.</h1>
+    <p class="lede fade-up d2">Mulai dari satu kilang pusat dengan modal Rp 650 juta, kelola armada truk, rekrut kru, penuhi pesanan SPBU di seluruh Indonesia, dan naik ke puncak leaderboard — semua langsung dari browser.</p>
   </div>
 </section>
 
 <section id="fitur">
   <div class="wrap">
-    <h2>Yang bisa kamu kelola</h2>
-    <p class="section-lede">Dari peta kilang sampai laporan pajak — setiap sisi bisnis distribusi energi disimulasikan.</p>
+    <h2 class="reveal">Yang bisa kamu kelola</h2>
+    <p class="section-lede reveal">Dari peta kilang sampai laporan pajak — setiap sisi bisnis distribusi energi disimulasikan.</p>
 
-    <div class="feature">
-      <span class="tag">PETA</span>
-      <div><h3>Peta &amp; Kilang</h3><p>Peta interaktif seluruh Indonesia menampilkan kilang, depo, dan SPBU secara real-time, lengkap animasi truk yang sedang dalam perjalanan.</p></div>
-    </div>
-    <div class="feature">
-      <span class="tag">DISPATCH</span>
-      <div><h3>Dispatch BBM &amp; LPG</h3><p>Pilih truk, pasangan supir &amp; kernet, lalu kirim pasokan ke SPBU dengan tanda tangan digital di setiap surat jalan.</p></div>
-    </div>
-    <div class="feature">
-      <span class="tag">STOK</span>
-      <div><h3>Pesanan Otomatis SPBU</h3><p>Stok SPBU menipis seiring waktu dan otomatis memesan ke perusahaanmu — telat kirim, mereka beralih ke pesaing.</p></div>
-    </div>
-    <div class="feature">
-      <span class="tag">MITRA</span>
-      <div><h3>Kemitraan SPBU (DODO)</h3><p>Setujui mitra untuk membuka SPBU baru, kumpulkan iuran bulanan, dan ambil alih lisensi yang menunggak.</p></div>
-    </div>
-    <div class="feature">
-      <span class="tag">BURSA</span>
-      <div><h3>Bursa P2P</h3><p>Jual-beli truk bekas antar pemain nyata lewat akun cloud masing-masing.</p></div>
-    </div>
-    <div class="feature">
-      <span class="tag">RANKING</span>
-      <div><h3>Leaderboard &amp; Cloud Save</h3><p>Progres tersimpan otomatis dan bisa dibandingkan dengan pemain lain kapan saja, dari perangkat mana saja.</p></div>
+    <div class="feature-grid">
+      <div class="feature-card glass reveal">
+        <h3>Peta &amp; Kilang</h3>
+        <p>Peta interaktif seluruh Indonesia menampilkan kilang, depo, dan SPBU secara real-time, lengkap animasi truk yang sedang dalam perjalanan.</p>
+      </div>
+      <div class="feature-card glass reveal">
+        <h3>Dispatch BBM &amp; LPG</h3>
+        <p>Pilih truk, pasangan supir &amp; kernet, lalu kirim pasokan ke SPBU dengan tanda tangan digital di setiap surat jalan.</p>
+      </div>
+      <div class="feature-card glass reveal">
+        <h3>Pesanan Otomatis SPBU</h3>
+        <p>Stok SPBU menipis seiring waktu dan otomatis memesan ke perusahaanmu — telat kirim, mereka beralih ke pesaing.</p>
+      </div>
+      <div class="feature-card glass reveal">
+        <h3>Kemitraan SPBU (DODO)</h3>
+        <p>Setujui mitra untuk membuka SPBU baru, kumpulkan iuran bulanan, dan ambil alih lisensi yang menunggak.</p>
+      </div>
+      <div class="feature-card glass reveal">
+        <h3>Bursa P2P</h3>
+        <p>Jual-beli truk bekas antar pemain nyata lewat akun cloud masing-masing.</p>
+      </div>
+      <div class="feature-card glass reveal">
+        <h3>Leaderboard &amp; Cloud Save</h3>
+        <p>Progres tersimpan otomatis dan bisa dibandingkan dengan pemain lain kapan saja, dari perangkat mana saja.</p>
+      </div>
     </div>
   </div>
 </section>
 
 <section class="about">
   <div class="wrap">
-    <h2>Tentang game ini</h2>
-    <p>Dimulai dengan modal awal <strong>Rp 650 juta</strong> dan satu kilang pusat aktif (<strong>Kilang Tuban</strong>), kamu berperan sebagai direktur perusahaan energi swasta: membeli armada, merekrut kru, mengirim pasokan sebelum SPBU kehabisan stok, membuka kemitraan baru, dan menjaga arus kas tetap positif sambil membayar pajak dan gaji.</p>
-    <div class="disclaimer">
+    <h2 class="reveal">Tentang game ini</h2>
+    <p class="reveal">Dimulai dengan modal awal <strong>Rp 650 juta</strong> dan satu kilang pusat aktif (<strong>Kilang Tuban</strong>), kamu berperan sebagai direktur perusahaan energi swasta: membeli armada, merekrut kru, mengirim pasokan sebelum SPBU kehabisan stok, membuka kemitraan baru, dan menjaga arus kas tetap positif sambil membayar pajak dan gaji.</p>
+    <div class="disclaimer glass reveal">
       <span>Ini proyek simulasi independen yang <strong>terinspirasi</strong> dari model bisnis distribusi hilir migas ala PT Pertamina Patra Niaga (skema SPBU COCO/DODO, kilang, armada BBM &amp; LPG). Game ini bukan produk resmi dan tidak berafiliasi dengan PT Pertamina (Persero) maupun PT Pertamina Patra Niaga. Semua nama perusahaan dan data di dalamnya fiktif untuk keperluan gameplay.</span>
     </div>
+  </div>
+</section>
+
+<section class="cta-final">
+  <div class="wrap">
+    <a class="btn-play" href="https://fastxgaming.github.io/studio-game/" target="_blank" rel="noopener">Main Sekarang di Browser</a>
+    <span class="pill">Aplikasi mobile: segera hadir</span>
   </div>
 </section>
 
