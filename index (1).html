@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pertama Manager ID: Nusantara Edition</title>
+<meta name="description" content="Game simulasi bisnis distribusi BBM &amp; LPG berbasis web. Bangun kerajaan logistik energimu dari Kilang Tuban sampai ke pelosok Nusantara.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root{
+    --bg:#0A0F14; --panel:#0F151C; --line:#212B33;
+    --amber:#FF9F43; --teal:#35D6C1;
+    --ink:#E8ECEF; --muted:#8A93A0;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Inter',sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,.brand{font-family:'Space Grotesk',sans-serif}
+  a{color:inherit}
+  .wrap{max-width:920px; margin:0 auto; padding:0 24px}
+
+  /* ===== Nav ===== */
+  header{position:sticky; top:0; z-index:10; background:rgba(10,15,20,.85); backdrop-filter:blur(8px); border-bottom:1px solid var(--line)}
+  .navbar{display:flex; align-items:center; justify-content:space-between; padding:16px 24px}
+  .brand{font-weight:700; font-size:1.05rem; display:flex; align-items:center; gap:9px}
+  .brand i{color:var(--amber)}
+  .nav-cta{font-size:.85rem; font-weight:600; padding:9px 16px; border:1px solid var(--line); border-radius:8px; text-decoration:none; transition:border-color .15s}
+  .nav-cta:hover{border-color:var(--amber)}
+
+  /* ===== Hero ===== */
+  .hero{padding:88px 0 64px; position:relative; overflow:hidden}
+  .route{position:absolute; left:0; right:0; top:38%; height:2px; background:linear-gradient(90deg,transparent,var(--line) 15%,var(--line) 85%,transparent); z-index:0}
+  .route::after{
+    content:''; position:absolute; top:-3px; width:8px; height:8px; border-radius:50%;
+    background:var(--amber); box-shadow:0 0 14px 3px rgba(255,159,67,.7);
+    animation:travel 5s linear infinite;
+  }
+  @keyframes travel{from{left:-2%}to{left:102%}}
+  @media (prefers-reduced-motion: reduce){ .route::after{animation:none; left:20%} }
+  .hero-inner{position:relative; z-index:1}
+  .eyebrow{color:var(--teal); font-size:.85rem; font-weight:600; margin:0 0 14px}
+  h1{font-size:clamp(2.1rem,5vw,3.1rem); line-height:1.12; font-weight:700; margin:0 0 20px; max-width:14ch}
+  .lede{color:var(--muted); font-size:1.05rem; max-width:56ch; margin:0 0 32px}
+  .cta-row{display:flex; flex-wrap:wrap; align-items:center; gap:16px}
+  .btn-play{
+    display:inline-flex; align-items:center; gap:10px; background:var(--amber); color:#1a1206;
+    font-weight:600; font-size:1rem; padding:14px 26px; border-radius:10px; text-decoration:none;
+    box-shadow:0 8px 24px -8px rgba(255,159,67,.55); transition:transform .15s, box-shadow .15s;
+  }
+  .btn-play:hover{transform:translateY(-2px); box-shadow:0 12px 30px -8px rgba(255,159,67,.7)}
+  .pill{
+    display:inline-flex; align-items:center; gap:7px; font-size:.8rem; color:var(--muted);
+    border:1px dashed var(--line); border-radius:999px; padding:7px 13px;
+  }
+  .pill i{color:var(--teal)}
+  .stat-row{display:flex; gap:32px; margin-top:56px; flex-wrap:wrap}
+  .stat b{display:block; font-family:'Space Grotesk',sans-serif; font-size:1.4rem; color:var(--amber)}
+  .stat span{color:var(--muted); font-size:.82rem}
+
+  /* ===== Sections ===== */
+  section{padding:56px 0; border-top:1px solid var(--line)}
+  h2{font-size:1.5rem; margin:0 0 8px}
+  .section-lede{color:var(--muted); margin:0 0 36px; max-width:60ch}
+
+  .feature{display:flex; gap:18px; padding:22px 0; border-top:1px solid var(--line)}
+  .feature:first-child{border-top:none}
+  .feature i{color:var(--teal); font-size:1.1rem; width:26px; padding-top:3px; flex-shrink:0}
+  .feature h3{margin:0 0 5px; font-size:1rem; font-weight:600}
+  .feature p{margin:0; color:var(--muted); font-size:.92rem; max-width:60ch}
+
+  .about p{color:var(--muted); max-width:64ch}
+  .about strong{color:var(--ink)}
+
+  .disclaimer{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px 20px; font-size:.85rem; color:var(--muted); display:flex; gap:12px;
+  }
+  .disclaimer i{color:var(--amber); margin-top:2px; flex-shrink:0}
+
+  footer{padding:32px 0 48px; color:var(--muted); font-size:.82rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px}
+  footer a{color:var(--teal); text-decoration:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="navbar wrap" style="max-width:920px;padding-left:0;padding-right:0">
+    <div class="brand"><i class="fa-solid fa-gas-pump"></i> Pertama Manager ID</div>
+    <a class="nav-cta" href="https://fastxgaming.github.io/studio-game/" target="_blank" rel="noopener">Main Sekarang</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="route"></div>
+  <div class="wrap hero-inner">
+    <p class="eyebrow">GAME SIMULASI BISNIS &middot; NUSANTARA EDITION</p>
+    <h1>Bangun kerajaan distribusi BBM &amp; LPG-mu sendiri.</h1>
+    <p class="lede">Mulai dari satu kilang pusat dengan modal Rp 650 juta, kelola armada truk, rekrut kru, penuhi pesanan SPBU di seluruh Indonesia, dan naik ke puncak leaderboard — semua langsung dari browser.</p>
+    <div class="cta-row">
+      <a class="btn-play" href="https://fastxgaming.github.io/studio-game/" target="_blank" rel="noopener">
+        <i class="fa-solid fa-play"></i> Main Sekarang di Browser
+      </a>
+      <span class="pill"><i class="fa-solid fa-mobile-screen"></i> Aplikasi mobile: segera hadir</span>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><b>Rp 650jt</b><span>Modal awal perusahaan</span></div>
+      <div class="stat"><b>270+</b><span>SPBU di 60 kota</span></div>
+      <div class="stat"><b>BBM + LPG</b><span>Dua lini distribusi</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="fitur">
+  <div class="wrap">
+    <h2>Yang bisa kamu kelola</h2>
+    <p class="section-lede">Dari peta kilang sampai laporan pajak — setiap sisi bisnis distribusi energi disimulasikan.</p>
+
+    <div class="feature">
+      <i class="fa-solid fa-map-location-dot"></i>
+      <div><h3>Peta &amp; Kilang</h3><p>Peta interaktif seluruh Indonesia menampilkan kilang, depo, dan SPBU secara real-time, lengkap animasi truk yang sedang dalam perjalanan.</p></div>
+    </div>
+    <div class="feature">
+      <i class="fa-solid fa-truck-fast"></i>
+      <div><h3>Dispatch BBM &amp; LPG</h3><p>Pilih truk, pasangan supir &amp; kernet, lalu kirim pasokan ke SPBU dengan tanda tangan digital di setiap surat jalan.</p></div>
+    </div>
+    <div class="feature">
+      <i class="fa-solid fa-bell"></i>
+      <div><h3>Pesanan Otomatis SPBU</h3><p>Stok SPBU menipis seiring waktu dan otomatis memesan ke perusahaanmu — telat kirim, mereka beralih ke pesaing.</p></div>
+    </div>
+    <div class="feature">
+      <i class="fa-solid fa-store"></i>
+      <div><h3>Kemitraan SPBU (DODO)</h3><p>Setujui mitra untuk membuka SPBU baru, kumpulkan iuran bulanan, dan ambil alih lisensi yang menunggak.</p></div>
+    </div>
+    <div class="feature">
+      <i class="fa-solid fa-right-left"></i>
+      <div><h3>Bursa P2P</h3><p>Jual-beli truk bekas antar pemain nyata lewat akun cloud masing-masing.</p></div>
+    </div>
+    <div class="feature">
+      <i class="fa-solid fa-trophy"></i>
+      <div><h3>Leaderboard &amp; Cloud Save</h3><p>Progres tersimpan otomatis dan bisa dibandingkan dengan pemain lain kapan saja, dari perangkat mana saja.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="about">
+  <div class="wrap">
+    <h2>Tentang game ini</h2>
+    <p>Dimulai dengan modal awal <strong>Rp 650 juta</strong> dan satu kilang pusat aktif (<strong>Kilang Tuban</strong>), kamu berperan sebagai direktur perusahaan energi swasta: membeli armada, merekrut kru, mengirim pasokan sebelum SPBU kehabisan stok, membuka kemitraan baru, dan menjaga arus kas tetap positif sambil membayar pajak dan gaji.</p>
+    <div class="disclaimer" style="margin-top:28px">
+      <i class="fa-solid fa-circle-info"></i>
+      <span>Ini proyek simulasi independen yang <strong style="color:var(--ink)">terinspirasi</strong> dari model bisnis distribusi hilir migas ala PT Pertamina Patra Niaga (skema SPBU COCO/DODO, kilang, armada BBM &amp; LPG). Game ini bukan produk resmi dan tidak berafiliasi dengan PT Pertamina (Persero) maupun PT Pertamina Patra Niaga. Semua nama perusahaan dan data di dalamnya fiktif untuk keperluan gameplay.</span>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <span>&copy; <span id="y"></span> Pertama Manager ID &middot; Nusantara Edition</span>
+  <a href="https://fastxgaming.github.io/studio-game/" target="_blank" rel="noopener">Main via web &rarr;</a>
+</footer>
+
+<script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>
