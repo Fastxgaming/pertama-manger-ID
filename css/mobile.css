@@ -1,0 +1,116 @@
+/* ================================================================
+   MOBILE OPTIMIZATION
+   Dipisah dari layout.css supaya mudah dirawat terpisah.
+   Breakpoint 1023px dipilih karena sama dengan titik saat sidebar
+   (#left-aside) berubah dari 2 kolom (desktop) jadi tumpukan (HP/tablet).
+   Breakpoint 767px dipakai untuk kepadatan header yang lebih agresif,
+   karena di situ header mulai terasa sempit/overflow di HP.
+   ================================================================ */
+
+/* ---------- 1) Sidebar tab (Peta, Pesanan SPBU, dst) jadi Bottom Nav Bar ---------- */
+@media (max-width: 1023.98px) {
+    #sidebar-tab-nav{
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 3000;
+        width: auto;
+        background: #0b0f17;
+        border-right: none;
+        border-top: none;
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 7px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+        box-shadow: 0 -6px 22px rgba(0,0,0,.45);
+    }
+    /* Garis aksen "meteran BBM" di atas bottom nav - ciri khas visual MIGAS Manager,
+       menggantikan border abu-abu polos supaya nav bar tidak terlihat seperti template umum. */
+    #sidebar-tab-nav::before{
+        content:'';
+        position:absolute; top:0; left:0; right:0; height:2px;
+        background:linear-gradient(90deg,#0d9488,#2dd4bf 35%,#fbbf24 65%,#f59e0b);
+        opacity:.85;
+    }
+    #sidebar-tab-nav .tab-btn{
+        position: relative;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        gap: 3px;
+        min-width: 58px;
+        padding: 7px 6px 6px;
+        font-size: 9px;
+        line-height: 1.1;
+        border-radius: .6rem;
+    }
+    /* Tab aktif: indikator titik "nyala" + ikon menyala, ganti gaya pill terang polos */
+    #sidebar-tab-nav .tab-btn.text-emerald-300{
+        background: rgba(45,212,191,.06) !important;
+        border-color: transparent !important;
+    }
+    #sidebar-tab-nav .tab-btn.text-emerald-300::after{
+        content:'';
+        position:absolute; top:1px; left:50%; transform:translateX(-50%);
+        width:14px; height:2.5px; border-radius:0 0 3px 3px;
+        background:linear-gradient(90deg,#2dd4bf,#fbbf24);
+        box-shadow:0 0 6px rgba(45,212,191,.8);
+    }
+    #sidebar-tab-nav .tab-btn.text-emerald-300 i{
+        filter: drop-shadow(0 0 5px rgba(45,212,191,.6));
+    }
+    #sidebar-tab-nav .tab-btn .ml-auto{
+        margin-left: 0;
+        position: absolute;
+        top: 1px;
+        right: 4px;
+    }
+    /* Aside tidak lagi butuh tinggi 60vh, karena menu tab sudah lepas jadi bottom bar */
+    #left-aside{ max-height: none; }
+
+    /* Beri jarak bawah supaya baris/tombol terakhir tidak ketutup bottom nav */
+    #tab-popup-body, #tab-content-panel{ padding-bottom: 84px; }
+}
+
+/* ---------- 2) Header: dirapatkan & tombol jadi ikon saja (gaya app HP) ---------- */
+@media (max-width: 767.98px) {
+    header{ padding: .45rem .55rem; gap: .4rem; }
+
+    /* Baris identitas: logo, nama app, notif, jam game, nama perusahaan */
+    #header-top-row{ gap: .35rem; }
+    #header-top-row > div{ gap: .35rem; }
+    #header-top-row .rounded-xl{ padding: .2rem .55rem .2rem .3rem; gap: 6px; }
+    #header-top-row .w-7.h-7{ width: 20px; height: 20px; }
+    #notif-wrap button{ width: 30px; height: 30px; }
+    #sound-toggle-btn{ width: 30px; height: 30px; }
+    #kpis-company{ max-width: 76px; font-size: 11px; }
+    #game-time{ font-size: 10px; }
+
+    /* FIX BUG: panel notifikasi (lonceng) sebelumnya menempel persis di bawah ikon dengan lebar
+       tetap (w-80), jadi di HP sempit bisa kepotong di tepi kanan layar & menimpa baris header
+       kedua saat header pecah jadi 2 baris. Di HP, panel dibuat "docking" penuh di bawah seluruh
+       header dengan margin kiri-kanan aman, posisi top dihitung dinamis lewat JS (--notif-panel-top). */
+    #notif-panel{
+        position: fixed;
+        top: var(--notif-panel-top, 64px);
+        left: 8px;
+        right: 8px;
+        margin-top: 0;
+        width: auto;
+        max-width: none;
+    }
+
+    /* "Manager ID" disembunyikan di layar sempit - logo MIGAS sudah cukup jadi identitas */
+    @media (max-width: 420px){
+        #header-top-row h1{ display: none; }
+    }
+
+    /* Strip KPI (Kas, Armada Truk, Total SDM, SPBU) */
+    #header-kpi-row{ gap: 6px; }
+    #header-kpi-row > div{ padding: .2rem .5rem .2rem .3rem; gap: 6px; }
+    #header-kpi-row .w-7.h-7{ width: 20px; height: 20px; }
+    #header-kpi-row span{ font-size: 10.5px; }
+    #header-kpi-row #kpis-cash{ font-size: 11.5px; }
+
+    /* Tombol Aksi header: gaya tile ada di css/layout.css (.hbtn), tidak perlu override lagi di sini. */
+}

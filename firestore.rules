@@ -1,0 +1,236 @@
+rules_version = '2';
+
+// Firestore Security Rules - Migas Manager Indonesia (v1.8: + blok_claims rebutan Blok Nasional)
+// Tempel di Firebase Console > Firestore Database > Rules > Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helper ----------
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    // Email sudah diverifikasi (klik link dari email verifikasi Firebase).
+    // Klien wajib memanggil getIdToken(true) setelah verifikasi supaya klaim email_verified di token ikut terbarui.
+    function verified() { return signedIn() && request.auth.token.email_verified == true; }
+    function isVerifiedOwner(uid) { return isOwner(uid) && verified(); }
+    // Admin = ada dokumen admins/{uid}. Dokumen ini dibuat MANUAL lewat Console (klien tidak bisa menulisnya).
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ---------- users/{uid}: profil pemain ----------
+    // Dibaca/ditulis pemain itu sendiri (register, markBroadcastSeen, hapus akun). Admin boleh baca.
+    // CATATAN: sengaja TIDAK memakai verified() - register menulis dokumen ini sebelum email sempat diverifikasi.
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid);
+      allow delete: if isOwner(uid);
+    }
+
+    // ---------- saves/{uid}: save game cloud ----------
+    // Klien hanya menulis { data, ts } (lihat fb.saveCloud), jadi field lain ditolak.
+    match /saves/{uid} {
+      allow read: if isVerifiedOwner(uid);
+      allow create, update: if isVerifiedOwner(uid)
+                            && request.resource.data.keys().hasOnly(['data', 'ts']);
+      allow delete: if isVerifiedOwner(uid);
+    }
+
+    // ---------- taxledger/{uid}/lines/{sid}: buku besar pajak (anti-curang) ----------
+    // Satu dokumen per "garis progres" (sid ikut tersimpan di save). Semua angka HANYA boleh naik, jadi pemain tidak bisa
+    // menurunkan pendapatan/beban/tagihan/pembayaran PPh atau memundurkan jam game lewat edit save. Tidak ada delete
+    // (kalau boleh, pemain tinggal hapus lalu buat ulang dengan angka kecil). PENGECUALIAN: hapus diizinkan kalau profil
+    // users/{uid} sudah tidak ada, yaitu saat "Hapus Akun" (klien menghapus profil dulu, baru buku besar).
+    function taxShape(d) {
+      return d.keys().hasOnly(['billed', 'fine', 'paid', 'income', 'expense', 'gt', 'upd'])
+          && d.keys().hasAll(['billed', 'fine', 'paid', 'income', 'expense', 'gt', 'upd'])
+          && d.billed is number && d.billed >= 0
+          && d.fine is number && d.fine >= 0
+          && d.paid is number && d.paid >= 0
+          && d.income is number && d.income >= 0
+          && d.expense is number && d.expense >= 0
+          && d.gt is number && d.gt >= 0
+          && d.upd == request.time;
+    }
+    match /taxledger/{uid}/lines/{sid} {
+      allow read: if isVerifiedOwner(uid) || isAdmin();
+      allow create: if isVerifiedOwner(uid)
+                    && sid.matches('^[A-Za-z0-9]{8,40}$')
+                    && taxShape(request.resource.data);
+      allow update: if isVerifiedOwner(uid)
+                    && taxShape(request.resource.data)
+                    && request.resource.data.billed  >= resource.data.billed
+                    && request.resource.data.fine    >= resource.data.fine
+                    && request.resource.data.paid    >= resource.data.paid
+                    && request.resource.data.income  >= resource.data.income
+                    && request.resource.data.expense >= resource.data.expense
+                    && request.resource.data.gt      >= resource.data.gt;
+      allow delete: if isVerifiedOwner(uid)
+                    && !exists(/databases/$(database)/documents/users/$(uid));
+    }
+
+    // ---------- companyCodes/{code}: kode perusahaan unik (3-4 huruf A-Z) ----------
+    // Keunikan dijamin di sini: create hanya berhasil kalau dokumen belum ada.
+    // Tidak ada update, dan hanya pemilik (uid di dokumen) yang boleh menghapus, yaitu saat Hapus Akun, supaya kode dibebaskan.
+    // CATATAN: create sengaja TIDAK memakai verified() - dipanggil saat register, sebelum email diverifikasi.
+    match /companyCodes/{code} {
+      allow get: if true;   // dipakai cek "kode sudah dipakai?" sebelum login (isi dokumen tidak sensitif)
+      allow list: if false;
+      allow create: if signedIn()
+                    && code.matches('^[A-Z]{3,4}$')
+                    && request.resource.data.keys().hasOnly(['uid', 'created'])
+                    && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ---------- leaderboard/{uid}: statistik publik ----------
+    match /leaderboard/{uid} {
+      allow read: if verified();
+      allow create, update: if isVerifiedOwner(uid)
+                            && request.resource.data.cash is number
+                            && request.resource.data.company is string
+                            && (!('rep' in request.resource.data)   // reputasi perusahaan (v91): opsional agar klien lama tetap bisa menulis
+                                || (request.resource.data.rep is number
+                                    && request.resource.data.rep >= 0 && request.resource.data.rep <= 200));
+      allow delete: if isVerifiedOwner(uid);   // dipakai saat hapus akun
+    }
+
+    // ---------- verified/{uid}: centang biru (hanya admin yang boleh mengubah) ----------
+    match /verified/{uid} {
+      allow read: if verified();
+      allow write: if isAdmin();
+    }
+
+    // ---------- admins/{uid}: daftar admin ----------
+    match /admins/{uid} {
+      allow get: if isOwner(uid);    // pemain cuma boleh cek dirinya sendiri
+      allow list, write: if false;   // tambah admin lewat Console saja
+    }
+
+    // ---------- banned/{uid}: blokir pemain ----------
+    match /banned/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ---------- passes/{uid}: pass mingguan/bulanan (hanya admin yang boleh menulis) ----------
+    match /passes/{uid} {
+      allow read: if isAdmin() || isVerifiedOwner(uid);
+      allow write: if isAdmin();
+    }
+
+    // ---------- fills/{id}: perintah admin "isi BBL semua cabang" untuk satu pemain (diterapkan otomatis oleh klien pemain) ----------
+    match /fills/{id} {
+      allow read: if isAdmin() || (verified() && resource.data.uid == request.auth.uid);
+      // Dibuat admin lewat fb.adminFillBbl: { uid, type, claimed, created, by }
+      allow create: if isAdmin()
+                    && request.resource.data.keys().hasOnly(['uid', 'type', 'claimed', 'created', 'by'])
+                    && request.resource.data.uid is string
+                    && request.resource.data.type == 'bbl_cabang'
+                    && request.resource.data.claimed == false;
+      // Pemain hanya boleh menandai perintah miliknya "sudah diterapkan" (false -> true).
+      allow update: if verified()
+                    && resource.data.uid == request.auth.uid
+                    && resource.data.claimed == false
+                    && request.resource.data.claimed == true
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed', 'claimedAt']);
+      allow delete: if false;
+    }
+
+    // ---------- topups/{id}: kiriman saldo dari admin ----------
+    match /topups/{id} {
+      allow read: if isAdmin() || (verified() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin();
+      // Pemain hanya boleh menandai kiriman miliknya "sudah diklaim" (false -> true), tidak ada perubahan lain.
+      allow update: if verified()
+                    && resource.data.uid == request.auth.uid
+                    && resource.data.claimed == false
+                    && request.resource.data.claimed == true
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed', 'claimedAt']);
+      allow delete: if false;
+    }
+
+    // ---------- broadcasts/{id}: pengumuman admin ----------
+    match /broadcasts/{id} {
+      allow read: if verified();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ---------- bursa/{id}: iklan jual-beli unit P2P ----------
+    match /bursa/{id} {
+      allow read: if verified();
+
+      // Pasang iklan: penjual = diri sendiri, status awal 'open', harga valid
+      allow create: if verified()
+                    && request.resource.data.keys().hasOnly(['sellerUid', 'sellerCompany', 'truck', 'harga', 'status', 'created'])
+                    && request.resource.data.sellerUid == request.auth.uid
+                    && request.resource.data.sellerCompany is string
+                    && request.resource.data.status == 'open'
+                    && request.resource.data.harga is number
+                    && request.resource.data.harga >= 1000000
+                    && request.resource.data.truck is map;
+
+      // Beli (transaksi): pembeli lain mengubah open -> sold, cuma boleh menyentuh field pembelian
+      allow update: if verified()
+                    && resource.data.status == 'open'
+                    && resource.data.sellerUid != request.auth.uid
+                    && request.resource.data.status == 'sold'
+                    && request.resource.data.buyerUid == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status', 'buyerUid', 'buyerCompany', 'soldAt']);
+
+      // Batalkan iklan: hanya penjual, dan hanya selama belum terjual
+      allow delete: if verified()
+                    && resource.data.sellerUid == request.auth.uid
+                    && resource.data.status == 'open';
+    }
+
+    // ---------- bursa_trades/{id}: catatan transaksi, penjual klaim pembayaran ----------
+    match /bursa_trades/{id} {
+      allow read: if verified()
+                  && (resource.data.sellerUid == request.auth.uid || resource.data.buyerUid == request.auth.uid);
+
+      // Dibuat pembeli dalam transaksi yang sama dengan perubahan iklan menjadi 'sold'.
+      // getAfter memastikan data trade cocok dengan iklan aslinya (penjual, harga, pembeli).
+      allow create: if verified()
+                    && request.resource.data.buyerUid == request.auth.uid
+                    && request.resource.data.claimed == false
+                    && getAfter(/databases/$(database)/documents/bursa/$(request.resource.data.listingId)).data.status == 'sold'
+                    && getAfter(/databases/$(database)/documents/bursa/$(request.resource.data.listingId)).data.buyerUid == request.auth.uid
+                    && getAfter(/databases/$(database)/documents/bursa/$(request.resource.data.listingId)).data.sellerUid == request.resource.data.sellerUid
+                    && getAfter(/databases/$(database)/documents/bursa/$(request.resource.data.listingId)).data.harga == request.resource.data.harga;
+
+      // Hanya penjual yang boleh klaim (false -> true), tidak boleh ubah field lain
+      allow update: if verified()
+                    && resource.data.sellerUid == request.auth.uid
+                    && resource.data.claimed == false
+                    && request.resource.data.claimed == true
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed', 'claimedAt']);
+
+      allow delete: if false;
+    }
+
+    // ---------- blok_claims/{key}: rebutan Blok Nasional antar pemain (tender hulu) ----------
+    // Hanya bisa DIBUAT sekali per blok (tanpa update), jadi siapa yang menulis lebih dulu menang. Semua pemain terverifikasi boleh membaca
+    // (untuk melihat blok yang sudah direbut). Pemilik boleh menghapus klaimnya sendiri (dipakai saat Hapus Akun).
+    match /blok_claims/{key} {
+      allow read: if verified();
+      allow create: if verified()
+                    && key.matches('^n[0-9]{3,7}_[0-9]$')
+                    && request.resource.data.keys().hasOnly(['uid', 'company', 'created'])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.company is string
+                    && request.resource.data.company.size() <= 40
+                    && request.resource.data.created == request.time;
+      allow update: if false;
+      allow delete: if verified() && resource.data.uid == request.auth.uid;
+    }
+
+    // ---------- Selain di atas: tolak semua ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,67 @@
+        /* ===== Identitas visual "ruang kendali operasional" =====
+           Judul & label pakai Space Grotesk (tegas, sedikit teknikal - cocok tema logistik BBM/LPG).
+           Semua angka/readout (yang sebelumnya font-mono default) dialihkan ke JetBrains Mono supaya
+           terasa seperti panel instrumen SPBU/kilang, bukan kartu SaaS generik. */
+        h1,h2,h3,h4,.font-display{font-family:'Space Grotesk',ui-sans-serif,system-ui,sans-serif;letter-spacing:-.01em}
+        .font-mono{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace}
+
+        /* Permukaan kartu: dari flat bg-gray-900/950 polos jadi permukaan berlapis halus + border teknis,
+           menyasar kombinasi class Tailwind yang sudah dipakai berulang di seluruh app (kartu, baris list, input). */
+        .bg-gray-900.border-gray-800.rounded-lg, .bg-gray-900.border-gray-800.rounded-xl,
+        .bg-gray-950.border-gray-800.rounded-lg, .bg-gray-950.border-gray-800.rounded-xl,
+        .bg-gray-900\/60.border-gray-800.rounded-lg, .bg-gray-900\/60.border-gray-800.rounded-xl,
+        .bg-gray-950\/60.border-gray-800.rounded-lg, .bg-gray-950\/60.border-gray-800.rounded-xl {
+            background-image:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 45%);
+            background-color:#0d1220;border-color:rgba(148,163,184,.16)!important;
+            box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 10px 24px -18px rgba(0,0,0,.8);
+        }
+        select.border-gray-800, input.border-gray-800, textarea.border-gray-800 { background-color:#0d1220; }
+        select:focus, input:focus, textarea:focus { outline:none; box-shadow:0 0 0 3px rgba(45,212,191,.16); }
+
+        /* Tombol aksi utama (solid + text-white): tekstur & bayangan lebih hidup dari flat-color default */
+        .text-white.font-bold.rounded-lg, .text-white.font-bold.rounded, .text-white.font-semibold.rounded-lg {
+            box-shadow:0 1px 0 rgba(255,255,255,.14) inset,0 10px 22px -12px rgba(0,0,0,.85);
+        }
+        button.transition:active, .picker-btn:active { transform:translateY(1px); }
+
+        /* Chip statistik ringkas (KPI readout) dipakai di panel Pesanan, Mitra, dll */
+        .stat-chip{position:relative;background-image:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 55%);background-color:#0b0f19;border:1px solid rgba(148,163,184,.16);border-radius:.85rem;padding:9px 6px 8px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;overflow:hidden}
+        .stat-chip-icon{font-size:11px;opacity:.85}
+        .stat-chip-label{font-size:8.5px;text-transform:uppercase;letter-spacing:.07em;color:#64748b;font-weight:700;line-height:1.2}
+        .stat-chip-value{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:15px;line-height:1.1}
+
+        /* Kop bagian/panel: badge ikon persegi + judul + deskripsi, dipakai seragam di semua tab operasi */
+        .panel-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:.85rem}
+        .panel-head-ico{flex:none;width:30px;height:30px;border-radius:.65rem;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 1px 0 rgba(255,255,255,.12) inset}
+        .panel-head h3{font-size:12px;font-weight:700;letter-spacing:.01em;line-height:1.25;margin-bottom:2px}
+        .panel-head p{font-size:11px;color:#8b93a3;line-height:1.5}
+
+        /* Status kosong: undangan bertindak, bukan sekadar teks abu-abu polos */
+        .empty-state{border:1px dashed rgba(148,163,184,.22);border-radius:.9rem;background:rgba(15,20,32,.5);padding:1.35rem 1rem;text-align:center;color:#6b7280;font-size:11px;line-height:1.5}
+        .empty-state i{font-size:19px;margin-bottom:7px;display:block;opacity:.55}
+
+        /* ===== Top Up Saldo: nuansa "loket pembayaran premium" - beda dari panel operasional lain ===== */
+        .topup-card{position:relative;overflow:hidden}
+        .topup-card::before{content:'';position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,#b45309,#fbbf24 35%,#fef3c7 50%,#fbbf24 65%,#b45309)}
+        .topup-step{display:flex;gap:9px;align-items:flex-start}
+        .topup-step-num{flex:none;width:17px;height:17px;margin-top:1px;border-radius:9999px;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.4);color:#fbbf24;font-size:9px;font-weight:800;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;justify-content:center}
+        .pkg-card{position:relative;overflow:hidden;text-align:left;border-radius:.9rem;padding:.7rem .75rem;border:1px solid rgba(148,163,184,.16);transition:border-color .15s ease,box-shadow .15s ease,transform .08s ease}
+        .pkg-card:active{transform:translateY(1px)}
+        .pkg-card.selected{border-color:#fbbf24!important;box-shadow:0 0 0 3px rgba(251,191,36,.15),0 14px 26px -16px rgba(0,0,0,.85)}
+        .pkg-ribbon{position:absolute;top:9px;right:-22px;transform:rotate(40deg);font-size:8px;font-weight:800;letter-spacing:.02em;padding:2px 24px;color:#052e16;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+        .pkg-coin{width:25px;height:25px;border-radius:.55rem;display:flex;align-items:center;justify-content:center;font-size:11px;flex:none;box-shadow:0 1px 0 rgba(255,255,255,.2) inset}
+        .pkg-check{position:absolute;top:7px;left:7px;width:15px;height:15px;border-radius:9999px;background:#fbbf24;color:#1c1300;display:flex;align-items:center;justify-content:center;font-size:8px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+        .pkg-days{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700}
+
+        /* ===== Identitas visual khas MIGAS Manager: aksen "meteran BBM" =====
+           Dibuat supaya sorotan/indikator aktif punya bentuk & warna yang khas milik sendiri
+           (garis gradasi teal->amber + glow), bukan sekadar pill polos generik. */
+        .fuel-accent-bar{background:linear-gradient(90deg,#0d9488,#2dd4bf 35%,#fbbf24 65%,#f59e0b)}
+
+        /* Legend peta: bisa dilipat supaya tidak menutupi peta di layar sempit */
+        .legend-box{overflow:hidden;transition:max-width .2s ease}
+        .legend-toggle{cursor:pointer;background:none;border:none;text-align:left}
+        .legend-chevron{transition:transform .18s ease}
+        .legend-collapsed .legend-body{display:none}
+        .legend-collapsed .legend-chevron{transform:rotate(-90deg)}
+        .legend-collapsed{max-width:none}

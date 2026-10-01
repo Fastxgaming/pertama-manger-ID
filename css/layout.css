@@ -1,0 +1,208 @@
+        #map { height: 100%; width: 100%; border-radius: 0.75rem; }
+        /* Saat tab selain Peta/Dealer dibuka, panel konten sidebar kiri dipindah ke panel kanan,
+           jadi wadah aside disusutkan supaya tidak menyisakan kotak hitam kosong */
+        #left-aside.nav-only { max-height: none; }
+        @media (min-width: 1024px) {
+            #left-aside.nav-only { width: 144px; }
+        }
+.truck-ico{width:30px;height:30px;border-radius:50%;border:2px solid #fff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.55);position:relative}
+        .truck-ico .tf{display:inline-block}
+        .truck-ico i{animation:truck-bob .35s ease-in-out infinite alternate}
+        .truck-ico.done{animation:truck-pulse 1s ease-out 2}
+        .truck-ico.done i{animation:none}
+        .truck-ico.done.boat::before,.truck-ico.done.boat::after{display:none}
+        @keyframes truck-bob{to{transform:translateY(-1.5px)}}
+        @keyframes truck-pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.8)}100%{box-shadow:0 0 0 20px rgba(16,185,129,0)}}
+        /* Animasi kapal berlayar: goyang diombang-ambing ombak (bukan naik-turun kayak truk), plus riak air di sekitar lambung */
+        .truck-ico.boat i{animation:boat-rock 1.7s ease-in-out infinite}
+        .truck-ico.boat::before,.truck-ico.boat::after{content:'';position:absolute;inset:-7px;border-radius:50%;border:2px solid rgba(56,189,248,.55);pointer-events:none;animation:boat-ripple 1.8s ease-out infinite}
+        .truck-ico.boat::after{animation-delay:.9s}
+        @keyframes boat-rock{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
+        @keyframes boat-ripple{0%{transform:scale(.55);opacity:.85}100%{transform:scale(1.9);opacity:0}}
+        /* Efek "aliran" di progress bar stok mentah & produk saat sedang diproses (lihat convertBblKeProduk / convertLpgCurah) */
+        .refine-flow{background-image:linear-gradient(135deg,rgba(255,255,255,.28) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.28) 50%,rgba(255,255,255,.28) 75%,transparent 75%,transparent);background-size:14px 14px;animation:refine-stripes .9s linear infinite}
+        @keyframes refine-stripes{from{background-position:0 0}to{background-position:14px 0}}
+        .truck-tip{background:#111827;color:#e5e7eb;border:1px solid #374151;font-size:10px;font-weight:700;padding:1px 5px;box-shadow:none}
+        .truck-tip:before{display:none}
+        /* Lencana status kecil di bawah ikon truk: MEMUAT / BONGKAR + hitung mundur (lihat setTruckStage di 07-animasi-kapal.js) */
+        .truck-stat{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;white-space:nowrap;pointer-events:none;color:#fff;font-size:9px;font-weight:800;line-height:1;padding:3px 6px;border-radius:999px;border:1px solid rgba(255,255,255,.75);box-shadow:0 1px 5px rgba(0,0,0,.55);animation:stat-pulse 1.2s ease-in-out infinite;z-index:5}
+        .truck-stat i{margin-right:2px}
+        @keyframes stat-pulse{0%,100%{opacity:1}50%{opacity:.7}}
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #111827; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; scroll-snap-type: x proximity; }
+        .no-scrollbar > * { scroll-snap-align: start; }
+        /* Fade halus di tepi kiri/kanan strip yang bisa digeser (HP & tablet), penanda ada konten lain di sampingnya */
+        .scroll-fade-x { -webkit-mask-image: linear-gradient(to right, transparent 0, black 18px, black calc(100% - 18px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, black 18px, black calc(100% - 18px), transparent 100%); }
+        @media (min-width: 1024px) { .scroll-fade-x { -webkit-mask-image: none; mask-image: none; } }
+        .loading-bg{background-image:radial-gradient(circle at 15% 10%,rgba(13,148,136,.32),transparent 45%),radial-gradient(circle at 90% 85%,rgba(99,102,241,.22),transparent 45%);background-color:#030712}
+        /* Latar layar utama in-game (peta & panel tab) - dekorasi halus supaya area kosong tidak terlalu polos, beda dari layar loading (di atas) dan tetap tidak mengganggu keterbacaan peta/panel di atasnya. */
+        #main-map-area{background-image:radial-gradient(circle at 10% 6%,rgba(20,184,166,.10),transparent 42%),radial-gradient(circle at 94% 90%,rgba(245,158,11,.08),transparent 46%),radial-gradient(circle at 50% 50%,rgba(99,102,241,.05),transparent 60%);background-color:#030712;overflow:hidden}
+        #main-map-area::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(148,163,184,.09) 1px,transparent 1.4px);background-size:26px 26px;-webkit-mask-image:radial-gradient(ellipse 85% 70% at 50% 40%,black 25%,transparent 75%);mask-image:radial-gradient(ellipse 85% 70% at 50% 40%,black 25%,transparent 75%);pointer-events:none;z-index:0}
+        #main-map-area>*{position:relative;z-index:1}
+        /* Latar sidebar kiri (nav + panel tab) - dekorasi senada supaya kedua sisi layar in-game sama-sama tidak polos. */
+        #left-aside{position:relative;background-color:#0b0f17;background-image:radial-gradient(circle at 0% 0%,rgba(20,184,166,.08),transparent 38%),radial-gradient(circle at 100% 100%,rgba(139,92,246,.06),transparent 42%)}
+        #left-aside::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(148,163,184,.07) 1px,transparent 1.4px);background-size:24px 24px;-webkit-mask-image:radial-gradient(ellipse 90% 80% at 30% 20%,black 20%,transparent 70%);mask-image:radial-gradient(ellipse 90% 80% at 30% 20%,black 20%,transparent 70%);pointer-events:none;z-index:0}
+        #left-aside>*{position:relative;z-index:1}
+        /* Pola titik halus di seluruh layar loading, supaya area kosong di layar lebar (desktop) tetap terasa "berisi" */
+        .loading-grid{position:absolute;inset:0;background-image:radial-gradient(rgba(148,163,184,.16) 1px,transparent 1.4px);background-size:28px 28px;-webkit-mask-image:radial-gradient(ellipse 75% 75% at 50% 50%,black 35%,transparent 78%);mask-image:radial-gradient(ellipse 75% 75% at 50% 50%,black 35%,transparent 78%)}
+        /* Ikon dekoratif melayang pelan di latar layar loading - cuma tampil di layar cukup lebar (sm+) supaya tidak berantakan di HP */
+        .loading-decor{position:absolute;color:#2dd4bf;opacity:.07;pointer-events:none;animation:decor-float 6s ease-in-out infinite}
+        .loading-decor.alt{color:#818cf8;animation-duration:7.5s}
+        @keyframes decor-float{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-14px) rotate(-4deg)}}
+        .loading-feature-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.03);border:1px solid rgba(148,163,184,.16);color:#94a3b8;font-size:10px;font-weight:700;padding:5px 11px;border-radius:9999px;white-space:nowrap}
+        .loading-feature-pill i{color:#2dd4bf;font-size:10px}
+        @keyframes pulse-glow{0%,100%{opacity:.25;transform:scale(.94)}50%{opacity:.6;transform:scale(1.08)}}
+        .glow-logo{animation:pulse-glow 1.8s ease-in-out infinite}
+        @keyframes fuel-drip{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+        .fuel-drip{display:inline-block;animation:fuel-drip 1s ease-in-out infinite}
+        @keyframes shimmer-sweep{0%{transform:translateX(-120%)}100%{transform:translateX(220%)}}
+        .loading-shimmer{background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);width:40%;animation:shimmer-sweep 1.1s linear infinite}
+        /* Gelombang halus mengalir di permukaan loading bar, seperti cairan - independen dari kilau shimmer di atas */
+        .loading-wave{position:absolute;left:0;right:0;top:-5px;height:12px;opacity:.5;pointer-events:none;
+            background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 20'><path d='M0 11 Q 15 3 30 11 T 60 11 T 90 11 T 120 11 V20 H0 Z' fill='white'/></svg>");
+            background-repeat:repeat-x;background-size:120px 12px;animation:wave-flow 2.6s linear infinite}
+        @keyframes wave-flow{from{background-position-x:0}to{background-position-x:-120px}}
+        @keyframes truck-wiggle{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-2px) rotate(-2deg)}}
+        #loading-truck i{display:inline-block;animation:truck-wiggle .4s ease-in-out infinite}
+        @keyframes dots-blink{0%,100%{opacity:.25}50%{opacity:1}}
+        .loading-dot{animation:dots-blink 1.2s ease-in-out infinite}
+        .loading-dot:nth-child(2){animation-delay:.15s}
+        .loading-dot:nth-child(3){animation-delay:.3s}
+        /* Spinner bulat berputar di tengah layar loading, dengan ikon pompa bensin di dalamnya */
+        @keyframes spin-ring{to{transform:rotate(360deg)}}
+        .spin-ring{animation:spin-ring 1.1s linear infinite}
+        @keyframes spin-ring-rev{to{transform:rotate(-360deg)}}
+        .spin-ring-rev{animation:spin-ring-rev 1.6s linear infinite}
+        /* Transisi halus loading -> layar Main Sekarang (splash) */
+        #loading-overlay{transition:opacity .45s ease}
+        #splash-overlay{transition:opacity .45s ease}
+        @keyframes cloud-remind-pulse{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,.7)}50%{box-shadow:0 0 0 7px rgba(56,189,248,0)}}
+        #btn-cloud-save.cloud-remind{animation:cloud-remind-pulse 1.3s ease-in-out infinite}
+        #toast-wrap{position:fixed;top:1rem;left:50%;transform:translateX(-50%);z-index:20000;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+        .toast-item{pointer-events:auto;display:flex;align-items:center;gap:8px;background:#111827;border:1px solid #374151;color:#e5e7eb;font-size:12px;font-weight:600;padding:8px 14px;border-radius:9999px;box-shadow:0 8px 24px rgba(0,0,0,.45);animation:toast-in .18s ease-out, toast-out .25s ease-in 1.75s forwards}
+        .toast-item.ok{border-color:rgba(16,185,129,.5)}
+        .toast-item.ok i{color:#34d399}
+        .toast-item.err{border-color:rgba(248,113,113,.5)}
+        .toast-item.err i{color:#f87171}
+        @keyframes toast-in{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes toast-out{from{opacity:1}to{opacity:0;transform:translateY(-6px)}}
+
+        /* ===== Picker: ganti <select> jadi tombol + lembar pilihan (bottom sheet) ===== */
+        select.picker-native{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;opacity:0!important;pointer-events:none!important}
+        .picker-wrap{position:relative}
+        .picker-btn{display:flex;align-items:center;gap:8px;cursor:pointer;text-align:left;transition:border-color .15s ease,background-color .15s ease}
+        .picker-btn:hover{border-color:#4b5563}
+        .picker-btn:active{transform:translateY(1px)}
+        .picker-btn .pb-ico{flex:none;width:16px;text-align:center;opacity:.85}
+        .picker-btn .pb-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .picker-btn .pb-label.pb-placeholder{color:#6b7280}
+        .picker-btn .pb-chev{flex:none;font-size:10px;opacity:.6;transition:transform .15s ease}
+        .picker-btn.open .pb-chev{transform:rotate(180deg)}
+        .picker-overlay{position:fixed;inset:0;background:rgba(3,7,18,.72);backdrop-filter:blur(1px);z-index:20500;display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .18s ease}
+        .picker-overlay.show{opacity:1}
+        @media (min-width:640px){ .picker-overlay{align-items:center} }
+        .picker-sheet{background:#0b1120;border:1px solid #1f2937;width:100%;max-width:440px;max-height:78vh;display:flex;flex-direction:column;border-radius:1rem 1rem 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.5);transform:translateY(16px);transition:transform .18s ease}
+        @media (min-width:640px){ .picker-sheet{border-radius:1rem;transform:translateY(8px);margin-bottom:0} }
+        .picker-overlay.show .picker-sheet{transform:translateY(0)}
+        .picker-sheet-head{flex:none;padding:12px 14px 10px;border-bottom:1px solid #1f2937}
+        .picker-sheet-title{font-size:12px;font-weight:800;color:#e5e7eb;text-transform:uppercase;letter-spacing:.03em;display:flex;align-items:center;justify-content:space-between;gap:8px}
+        .picker-sheet-close{flex:none;color:#9ca3af;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:9999px;cursor:pointer}
+        .picker-sheet-close:hover{background:#1f2937;color:#e5e7eb}
+        .picker-search{margin-top:8px;display:flex;align-items:center;gap:6px;background:#111827;border:1px solid #1f2937;border-radius:.6rem;padding:7px 10px}
+        .picker-search input{background:transparent;border:0;outline:0;color:#e5e7eb;font-size:12px;width:100%}
+        .picker-search i{color:#6b7280;font-size:11px}
+        .picker-sheet-body{overflow-y:auto;padding:6px}
+        .picker-group-label{font-size:10px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px 3px}
+        .picker-item{width:100%;display:flex;align-items:center;gap:9px;text-align:left;padding:9px 10px;border-radius:.6rem;font-size:12px;color:#d1d5db;cursor:pointer;background:transparent;border:1px solid transparent}
+        .picker-item:hover{background:#111827}
+        .picker-item.active{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:#e5e7eb}
+        .picker-item .pi-check{flex:none;width:14px;color:#10b981;opacity:0}
+        .picker-item.active .pi-check{opacity:1}
+        .picker-item[disabled]{opacity:.5;cursor:default}
+        .picker-item[disabled]:hover{background:transparent}
+        .picker-empty{padding:18px 10px;text-align:center;color:#6b7280;font-size:11px}
+
+        /* ===== Dealer: chip pemilih kategori armada ===== */
+        .dealer-cat-btn{color:#9ca3af;background:#0b1120;border-color:#1f2937}
+        .dealer-cat-btn:hover{color:#e5e7eb;background:#111827}
+        .dealer-cat-btn.active{color:#fff;background:#4f46e5;border-color:#4f46e5;box-shadow:0 2px 10px rgba(79,70,229,.35)}
+
+
+/* ===== Tombol aksi header (Tutorial, Jeda, Admin, Top Up, Peringkat, Akun) =====
+   HP: tile vertikal (ikon di atas, label di bawah), lebar dibagi rata. Laptop: pil horizontal (ikon + label). */
+#header-actions-row .hbtn{
+    position:relative; flex:1 1 0; min-width:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+    padding:8px 2px 7px; border-radius:16px;
+    background:linear-gradient(180deg,rgba(31,41,55,.78),rgba(10,14,25,.9));
+    border:1px solid rgba(75,85,99,.38); color:#d1d5db;
+    font-size:10px; font-weight:700; line-height:1; letter-spacing:.01em;
+    box-shadow:0 2px 6px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+    transition:transform .12s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    -webkit-tap-highlight-color:transparent; cursor:pointer;
+}
+#header-actions-row .hbtn.hidden{ display:none; }
+#header-actions-row .hbtn:hover{ border-color:var(--hb); color:#fff; box-shadow:0 0 14px -4px var(--hb), inset 0 1px 0 rgba(255,255,255,.06); }
+#header-actions-row .hbtn:active{ transform:scale(.94); }
+#header-actions-row .hbtn:focus-visible{ outline:2px solid var(--hb); outline-offset:2px; }
+#header-actions-row .hbtn.hbtn-hot{
+    background:linear-gradient(180deg,rgba(251,191,36,.20),rgba(120,53,15,.32));
+    border-color:rgba(251,191,36,.5); color:#fde68a;
+}
+#header-actions-row .hico{
+    width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+    border-radius:12px; background:var(--hbg); color:var(--hb); font-size:15px; margin:0;
+}
+#header-actions-row .hlbl{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 2px; }
+#header-actions-row #topup-badge{ position:absolute; top:3px; right:calc(50% - 26px); margin:0; line-height:1.35; box-shadow:0 0 0 2px #0b1220; }
+@media (min-width:640px){
+    #header-actions-row .hbtn{ flex:none; flex-direction:row; gap:8px; padding:5px 14px 5px 5px; border-radius:14px; font-size:12px; }
+    #header-actions-row .hico{ width:28px; height:28px; border-radius:10px; font-size:13px; }
+    #header-actions-row #topup-badge{ position:static; margin-left:2px; }
+}
+
+/* ===== Jeda permainan ===== */
+#header-actions-row .hbtn.hbtn-paused{ border-color:rgba(52,211,153,.6); color:#a7f3d0; animation:pausePulse 1.6s ease-in-out infinite; }
+@keyframes pausePulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(52,211,153,.35);} 50%{ box-shadow:0 0 14px 2px rgba(52,211,153,.35);} }
+#pause-banner{
+    position:fixed; left:50%; bottom:calc(16px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
+    z-index:9000; display:flex; align-items:center; gap:10px; max-width:calc(100vw - 24px);
+    padding:10px 12px 10px 14px; border-radius:14px; font-size:12px; font-weight:700; color:#e5e7eb;
+    background:rgba(17,24,39,.95); border:1px solid rgba(52,211,153,.5); box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+#pause-banner i{ color:#34d399; }
+#pause-banner button{ background:#059669; color:#fff; border:0; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+#pause-banner button:hover{ background:#047857; }
+
+
+/* ===== FIX layar laptop/PC (tinggi layar pendek) =====
+   1) Modal Dealer: isinya (spesifikasi + jumlah + depo + julukan) lebih tinggi dari layar laptop,
+      sebelumnya kepotong atas & bawah tanpa scroll. Sekarang kotak dibatasi tinggi layar & bisa di-scroll. */
+#dealer-modal .dealer-modal-box{
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #374151 transparent;
+}
+#dealer-modal .dealer-modal-box::-webkit-scrollbar{ width:6px; }
+#dealer-modal .dealer-modal-box::-webkit-scrollbar-thumb{ background:#374151; border-radius:6px; }
+@media (max-height: 800px) and (min-width: 768px){
+    #dealer-modal .dealer-modal-box{ padding: 1rem 1.25rem; }
+    #dealer-modal .dealer-modal-box > .mb-4{ margin-bottom: .6rem; }
+}
+/* 2) Panel notifikasi: selalu di atas tombol Tutorial/Jeda/dll (yang position:relative & muncul
+      setelahnya di DOM), dan tingginya menyesuaikan sisa layar. */
+#notif-wrap{ z-index:2500; }
+#notif-panel{ z-index:2600; }
+
+/* Lencana status jaringan (lihat js/12-offline.js) */
+#net-badge{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:50%;transform:translateX(-50%);z-index:9999;display:none;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:11px;line-height:1.2;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.6);pointer-events:none;max-width:92vw;white-space:nowrap}
+#net-badge span{font-weight:500;opacity:.9;overflow:hidden;text-overflow:ellipsis}
+#net-badge.net-off{background:#b91c1c;animation:stat-pulse 1.6s ease-in-out infinite}
+#net-badge.net-on{background:#047857}
+@media (max-width:480px){#net-badge span{display:none}}
