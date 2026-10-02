@@ -1,6 +1,6 @@
         // ===== LAYAR LOADING & PLAY GAME (sebelum Daftar/Masuk) =====
         // Satu-satunya tempat untuk update nomor versi - otomatis tampil di layar loading & layar "Main Sekarang".
-        const APP_VERSION = '1.8.0';
+        const APP_VERSION = '1.9.0';
         (function showAppVersion() {
             const label = 'v' + APP_VERSION;
             const a = document.getElementById('app-version-loading'); if (a) a.textContent = label;
@@ -107,42 +107,9 @@
             document.getElementById('splash-overlay').classList.remove('hidden');
         }
 
-        // ===== TUTORIAL DALAM GAME (untuk pemain baru) =====
-        const TUTORIAL_STEPS = [
-            { icon: 'fa-gas-pump', title: 'Selamat Datang di Migas Manager ID!', desc: 'Kamu jadi bos perusahaan distribusi BBM & LPG. Modal awal Rp 650 Juta, Kilang Tuban sudah aktif dengan stok 750.000 Bbl. Tutorial singkat ini menunjukkan langkah pertama supaya kamu tidak bingung.' },
-            { icon: 'fa-store', title: '1. Beli Armada di Dealer', desc: 'Buka tab Dealer untuk beli truk tangki BBM atau LPG. Setiap pembelian sudah termasuk biaya Uji KIR, STNK, dan plat nomor, jadi truk langsung siap jalan.' },
-            { icon: 'fa-user-shield', title: '2. Rekrut Supir & Kernet', desc: 'Buka tab SDM Driver untuk merekrut supir dan kernet. Truk butuh keduanya sebelum bisa dikirim ke SPBU, jadi rekrut secukupnya sesuai jumlah armada.' },
-            { icon: 'fa-gas-pump', title: '3. Kirim BBM / LPG ke SPBU', desc: 'Buka tab Pesanan SPBU, tekan tombol "Kirim" di pesanan yang mau dilayani, lalu pilih truk + supir + kernet dan tanda tangani Surat Jalan. Pendapatan cair otomatis setelah truk tiba dan selesai bongkar muatan.' },
-            { icon: 'fa-bell', title: '4. Pantau Pesanan SPBU', desc: 'Kalau stok BBM di suatu SPBU menipis, SPBU otomatis memesan ke perusahaanmu. Cek tab Pesanan SPBU secara rutin dan kirim sebelum batas waktu habis, atau SPBU beralih ke pesaing.' },
-            { icon: 'fa-right-left', title: '5. Bursa P2P', desc: 'Punya truk nganggur? Buka tab Armada, lalu klik tombol "Jual ke Bursa P2P" di kartu truk yang tidak bertugas untuk langsung pasang iklan (harga wajar otomatis terisi, tinggal sesuaikan). Bisa juga lewat tab Bursa P2P langsung, atau beli truk bekas dari pemain lain dengan harga lebih murah daripada beli baru di Dealer. Truk bekas masih atas nama PT penjual: lakukan Balik Nama di tab Armada dulu sebelum bisa dijual lagi (Bursa maupun Instan).' },
-            { icon: 'fa-trophy', title: '6. Naik Peringkat & Cek Laporan', desc: 'Tab Peringkat membandingkan kas, armada, dan kilang/depo milikmu dengan pemain lain. Tab Laporan menampilkan pemasukan, pengeluaran, dan kewajiban PPh Badan perusahaanmu (ditagih tiap 2 minggu game, telat bayar kena denda).' },
-            { icon: 'fa-circle-check', title: 'Selamat Berbisnis!', desc: 'Itu dia dasar-dasarnya. Kamu bisa buka tutorial ini lagi kapan saja lewat tombol Tutorial di bagian atas layar. Selamat membangun kerajaan logistik energimu!' }
-        ];
-        let tutStep = 0;
-        function openTutorial(isNew) {
-            tutStep = 0;
-            document.getElementById('custom-modal').classList.add('hidden');
-            renderTutorialStep();
-            document.getElementById('tutorial-overlay').classList.remove('hidden');
-        }
-        function renderTutorialStep() {
-            const s = TUTORIAL_STEPS[tutStep], last = tutStep === TUTORIAL_STEPS.length - 1;
-            document.getElementById('tut-icon').innerHTML = `<i class="fa-solid ${s.icon}"></i>`;
-            document.getElementById('tut-title').innerText = s.title;
-            document.getElementById('tut-desc').innerText = s.desc;
-            document.getElementById('tut-dots').innerHTML = TUTORIAL_STEPS.map((_, i) => `<span class="inline-block w-1.5 h-1.5 rounded-full ${i === tutStep ? 'bg-teal-400' : 'bg-gray-700'}"></span>`).join('');
-            document.getElementById('tut-skip').classList.toggle('hidden', last);
-            document.getElementById('tut-next').innerHTML = last ? '<i class="fa-solid fa-check mr-1.5"></i>Mulai Main' : 'Lanjut <i class="fa-solid fa-arrow-right ml-1.5"></i>';
-        }
-        function nextTutorial() {
-            if (tutStep >= TUTORIAL_STEPS.length - 1) { document.getElementById('tutorial-overlay').classList.add('hidden'); return; }
-            tutStep++; renderTutorialStep();
-        }
-        function skipTutorial() { document.getElementById('tutorial-overlay').classList.add('hidden'); }
-
         let companyCash = 650000000;
         // ===== EKONOMI (sesuaikan di sini) =====
-        const ECO = { bblPerKl: 6.2898, jualKl: 4500000, jualTon: 4500000, hppTon: 2900000, bonusPesanan: 0.10, bonusJarakPerKm: 0.0025, asuransiPersen: 0.025, jarakBonusMinKm: 50, jarakBonusCapKm: 300, gajiSupir: [4500000, 30000], gajiKernet: [3500000, 20000], gajiMekanik: [4000000, 25000], gajiNahkoda: [6000000, 45000], gajiABK: [3800000, 22000], biayaKirimKl: 440000, biayaKirimTon: 625000, biayaOlahBbl: 50000, biayaTransferDaratBbl: 37500, jualKlPerJenis: { solar: 4500000, pertalite: 4700000, pertamax: 5600000, dex: 5400000, turbo: 6600000 } };
+        const ECO = { bblPerKl: 6.2898, jualKl: 4500000, jualTon: 4500000, hppTon: 2900000, bonusPesanan: 0.10, bonusJarakPerKm: 0.0025, asuransiPersen: 0.025, jarakBonusMinKm: 50, jarakBonusCapKm: 300, gajiSupir: [4500000, 30000], gajiKernet: [3500000, 20000], gajiMekanik: [4000000, 25000], gajiNahkoda: [6000000, 45000], gajiABK: [3800000, 22000], biayaKirimKl: 440000, biayaKirimTon: 625000, pajakOlahBbm: 0.03, pajakOlahLpg: 0.01, biayaTransferDaratBbl: 37500, jualKlPerJenis: { solar: 4500000, pertalite: 4700000, pertamax: 5600000, dex: 5400000, turbo: 6600000 } };
         // Harga jual BBM per KL menurut id jenis di FUELS (solar/pertalite/pertamax/dex/turbo). Id tak dikenal jatuh ke ECO.jualKl.
         const hargaJualKl = id => (ECO.jualKlPerJenis && ECO.jualKlPerJenis[id]) || ECO.jualKl;
         let totalIncome = 0;
@@ -164,7 +131,7 @@
                 lat: -6.812400,
                 lon: 111.962100,
                 is_unlocked: true,
-                stok_current: 1000000, // pemain baru mulai dengan 1 juta Bbl mentah di Tuban (kapasitas tangki tetap 5 juta; save lama memakai nilainya sendiri)
+                stok_current: 4000000, // pemain baru mulai dengan 80% tangki Tuban = 4 juta Bbl mentah dari kapasitas 5 juta (save lama memakai nilainya sendiri)
                 stok_max: 5000000,
                 unit: 'Bbl',
                 harga_beli: 0,

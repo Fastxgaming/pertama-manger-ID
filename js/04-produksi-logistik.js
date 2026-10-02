@@ -39,13 +39,14 @@
                 const bbm = depoOfRegion(s.region, 'BBM');
                 if (bbm && bbm.is_unlocked) { s.wilayahBbmId = bbm.id; s.wilayahBbmNama = bbm.nama; s.wilayahBbmJarak = Math.round(distKm(bbm, s) * 10) / 10; }
                 else { s.wilayahBbmId = null; s.wilayahBbmNama = '-'; s.wilayahBbmJarak = null; }
+                if (s.jenis === 'SPPBE') { s.wilayahBbmId = null; s.wilayahBbmNama = null; s.wilayahBbmJarak = null; } // SPPBE tidak jual BBM
                 if (s.has_lpg) {
                     const lpg = depoOfRegion(s.region, 'LPG');
                     if (lpg && lpg.is_unlocked) { s.wilayahLpgId = lpg.id; s.wilayahLpgNama = lpg.nama; s.wilayahLpgJarak = Math.round(distKm(lpg, s) * 10) / 10; }
                     else { s.wilayahLpgId = null; s.wilayahLpgNama = '-'; s.wilayahLpgJarak = null; }
                 } else { s.wilayahLpgId = null; s.wilayahLpgNama = null; s.wilayahLpgJarak = null; }
                 // Alias wilayah utama = wilayah BBM (dipakai buat dropdown filter & tampilan umum, karena semua SPBU jual BBM).
-                s.wilayahId = s.wilayahBbmId; s.wilayahNama = s.wilayahBbmNama; s.wilayahJarak = s.wilayahBbmJarak;
+                s.wilayahId = s.jenis === 'SPPBE' ? s.wilayahLpgId : s.wilayahBbmId; s.wilayahNama = s.jenis === 'SPPBE' ? s.wilayahLpgNama : s.wilayahBbmNama; s.wilayahJarak = s.jenis === 'SPPBE' ? s.wilayahLpgJarak : s.wilayahBbmJarak;
             });
             rebuildRegionFilterOptions();
         }
@@ -633,17 +634,39 @@
             }
             const hasil = Math.round(amount * RATIO * 100) / 100;
             const durasi = refineDurationMs(amount, 1500);
+            const pajak = pajakOlahLpg(amount);
+            if (chargePajakOlah(pajak, `Pajak Pengolahan ${Math.round(ECO.pajakOlahLpg * 100)}% ${amount.toLocaleString('id-ID')} Ton LPG Curah -> Tabung - ${kilang.nama}`) === false) {
+                showModal('Kas Tidak Cukup', `Pajak Pengolahan ${amount.toLocaleString('id-ID')} Ton LPG Curah sebesar ${formatRupiah(pajak)} (${Math.round(ECO.pajakOlahLpg * 100)}% dari nilai jual). Kas kurang ${formatRupiah(pajak - companyCash)}.`, 'fa-triangle-exclamation', 'red');
+                return;
+            }
             // Bahan mentah LPG Curah langsung terpakai begitu proses dimulai; hasil LPG Tabung baru masuk tangki setelah durasi olah selesai.
             curah.cur = Math.round((curah.cur - amount) * 100) / 100;
-            addLog(`KONVERSI LPG: ${kilang.nama} mulai mengolah ${amount.toLocaleString('id-ID')} Ton LPG Curah menjadi LPG Tabung (&plusmn;${refineJamLabel(durasi)}).`, 'info');
+            addLog(`KONVERSI LPG: ${kilang.nama} mulai mengolah ${amount.toLocaleString('id-ID')} Ton LPG Curah menjadi LPG Tabung (&plusmn;${refineJamLabel(durasi)}). Pajak Pengolahan ${formatRupiah(pajak)}.`, 'info');
             startRefineJob(kilang, tabung, hasil, durasi, { kind: 'lpg', bbl: amount, amount: hasil });
             renderRefineries();
         }
 
         // ===== KONVERSI BBL -> BBM: manual lewat tombol, prosesnya berjalan sesuai durasi (tidak instan, tidak otomatis lagi) =====
         // n = jumlah produk (KL) yang mau dihasilkan sekali klik; n=0/kosong artinya "isi penuh sebisa mungkin".
-        // Biaya olah (BBL -> BBM) & transfer darat Tuban -> depo: Rp per Bbl mentah yang dipakai (ECO.biayaOlahBbl / ECO.biayaTransferDaratBbl).
+        // Transfer darat Tuban -> depo: Rp per Bbl mentah yang dipakai (ECO.biayaTransferDaratBbl). Konversi memakai Pajak Pengolahan (lihat di bawah).
         // Dibayar di muka saat proses dimulai. Mengembalikan false (tanpa memotong kas) kalau kas tidak cukup.
+        // ===== PAJAK PENGOLAHAN (menggantikan biaya olah per Bbl) =====
+        // Konversi tidak punya biaya olah; yang ada hanya Pajak Pengolahan sebagai persen dari NILAI JUAL produk jadi (harga jual dasar, bukan harga pasar bahan baku):
+        //   BBL -> BBM          : ECO.pajakOlahBbm (3%) x KL hasil x harga jual per KL jenis itu (Solar/Pertalite/Pertamax/Dexlite/Turbo beda harga)
+        //   LPG Curah -> Tabung : ECO.pajakOlahLpg (1%) x Ton curah diolah x ECO.jualTon (susut 8% tetap berlaku)
+        // Dicatat sebagai pengeluaran (totalExpense), jadi mengurangi laba kena PPh. Tarif sengaja ringan karena laba sudah kena PPh berkala.
+        const PAJAK_OLAH_JENIS = { dexlite: 'dex', pertamax_turbo: 'turbo' };   // key PRODUCT_META -> key ECO.jualKlPerJenis
+        const hargaJualBbmKey = key => hargaJualKl(PAJAK_OLAH_JENIS[key] || key);
+        const pajakOlahBbm = (key, kl) => Math.round(kl * hargaJualBbmKey(key) * ECO.pajakOlahBbm);
+        const pajakOlahLpg = ton => Math.round(ton * ECO.jualTon * ECO.pajakOlahLpg);
+        // Dibayar di muka saat proses dimulai. Mengembalikan false (tanpa memotong kas) kalau kas tidak cukup.
+        function chargePajakOlah(nominal, desc) {
+            if (companyCash < nominal) return false;
+            companyCash -= nominal; totalExpense += nominal;
+            addFinanceLog(desc, -nominal);
+            updateCashDisplay();
+            return nominal;
+        }
         function chargeBiayaBbl(bbl, tarif, desc) {
             const biaya = Math.round(bbl * tarif);
             if (companyCash < biaya) return false;
@@ -666,11 +689,12 @@
             }
             const bblUsed = Math.round(amount * meta.refineRatio * 100) / 100;
             const durasi = refineDurationMs(amount, BBL_CONVERT_STEP[key]);
-            const biayaOlah = chargeBiayaBbl(bblUsed, ECO.biayaOlahBbl, `Biaya Olah ${bblUsed.toLocaleString('id-ID')} Bbl -> ${meta.label} - ${kilang.nama}`);
-            if (biayaOlah === false) return showModal('Kas Tidak Cukup', `Biaya olah ${bblUsed.toLocaleString('id-ID')} Bbl adalah ${formatRupiah(Math.round(bblUsed * ECO.biayaOlahBbl))} (${formatRupiah(ECO.biayaOlahBbl)}/Bbl). Kurangi jumlah atau tambah kas.`, 'fa-triangle-exclamation', 'red');
+            const pajak = pajakOlahBbm(key, amount);
+            if (chargePajakOlah(pajak, `Pajak Pengolahan ${Math.round(ECO.pajakOlahBbm * 100)}% ${amount.toLocaleString('id-ID')} ${meta.unit} ${meta.label} - ${kilang.nama}`) === false)
+                return showModal('Kas Tidak Cukup', `Pajak Pengolahan ${amount.toLocaleString('id-ID')} ${meta.unit} ${meta.label} sebesar ${formatRupiah(pajak)} (${Math.round(ECO.pajakOlahBbm * 100)}% dari nilai jual). Kas kurang ${formatRupiah(pajak - companyCash)}. Kurangi jumlah atau tambah kas.`, 'fa-triangle-exclamation', 'red');
             // BBL mentah langsung terpakai/terkunci begitu proses dimulai; hasil BBM baru masuk tangki setelah durasi olah selesai.
             kilang.stok_current = Math.max(0, Math.round((kilang.stok_current - bblUsed) * 100) / 100);
-            addLog(`KONVERSI BBL: ${kilang.nama} mulai mengolah ${bblUsed.toLocaleString('id-ID')} Bbl mentah menjadi ${meta.label} (&plusmn;${refineJamLabel(durasi)}).`, 'info');
+            addLog(`KONVERSI BBL: ${kilang.nama} mulai mengolah ${bblUsed.toLocaleString('id-ID')} Bbl mentah menjadi ${meta.label} (&plusmn;${refineJamLabel(durasi)}). Pajak Pengolahan ${formatRupiah(pajak)}.`, 'info');
             startRefineJob(kilang, slot, amount, durasi, { kind: 'bbm', bbl: bblUsed, amount });
             renderRefineries();
         }
@@ -689,7 +713,7 @@
                 return meta && meta.refineRatio && key !== 'lpg_curah' && key !== 'lpg_tabung' && slot && !slot.refining;
             });
             if (!keys.length) return;
-            const started = []; let kasKurang = false;
+            const started = []; let kasKurang = 0, pajakTotal = 0;
             for (const key of keys) {
                 if (kilang.stok_current <= 0) break; // BBL mentah habis, hentikan - jenis berikutnya tidak kebagian
                 const meta = PRODUCT_META[key], slot = kilang.kap[key];
@@ -700,7 +724,9 @@
                 if (amount <= 0) continue;
                 const bblUsed = Math.round(amount * meta.refineRatio * 100) / 100;
                 const durasi = refineDurationMs(amount, BBL_CONVERT_STEP[key]);
-                if (chargeBiayaBbl(bblUsed, ECO.biayaOlahBbl, `Biaya Olah ${bblUsed.toLocaleString('id-ID')} Bbl -> ${meta.label} - ${kilang.nama}`) === false) { kasKurang = true; continue; } // kas tak cukup untuk jenis ini, lewati
+                const pajak = pajakOlahBbm(key, amount);
+                if (chargePajakOlah(pajak, `Pajak Pengolahan ${Math.round(ECO.pajakOlahBbm * 100)}% ${amount.toLocaleString('id-ID')} ${meta.unit} ${meta.label} - ${kilang.nama}`) === false) { kasKurang = Math.max(kasKurang, pajak - companyCash); continue; } // kas tak cukup untuk jenis ini, lewati
+                pajakTotal += pajak;
                 kilang.stok_current = Math.max(0, Math.round((kilang.stok_current - bblUsed) * 100) / 100);
                 started.push({ key, meta, amount, bblUsed });
                 addLog(`KONVERSI BBL: ${kilang.nama} mulai mengolah ${bblUsed.toLocaleString('id-ID')} Bbl mentah menjadi ${meta.label} (&plusmn;${refineJamLabel(durasi)}) - bagian dari konversi massal semua jenis.`, 'info');
@@ -708,7 +734,7 @@
             }
             renderRefineries();
             if (!started.length) {
-                showModal('Tidak Bisa Konversi', kasKurang ? `Kas tidak cukup untuk biaya olah (${formatRupiah(ECO.biayaOlahBbl)}/Bbl).` : kilang.stok_current <= 0 ? `Stok BBL mentah di ${kilang.nama} kosong.` : `Semua tangki BBM di ${kilang.nama} sudah penuh.`, 'fa-circle-exclamation', 'amber');
+                showModal('Tidak Bisa Konversi', kasKurang ? `Kas tidak cukup untuk Pajak Pengolahan (${Math.round(ECO.pajakOlahBbm * 100)}% dari nilai jual produk). Kas kurang ${formatRupiah(kasKurang)}.` : kilang.stok_current <= 0 ? `Stok BBL mentah di ${kilang.nama} kosong.` : `Semua tangki BBM di ${kilang.nama} sudah penuh.`, 'fa-circle-exclamation', 'amber');
                 return;
             }
             const ringkasan = started.map(s => `${s.amount.toLocaleString('id-ID')} ${s.meta.unit} ${s.meta.label}`).join(', ');
@@ -716,7 +742,7 @@
             // durasinya pendek, begitu modal ditutup prosesnya sudah selesai duluan sehingga terasa "instan".
             // Sekarang notify() (toast di panel notifikasi, tidak menutupi/menghentikan apa pun) supaya progress
             // bar & badge "Diolah" yang sedang berjalan bertahap tetap kelihatan.
-            notify(`${kilang.nama} mulai mengolah BBL mentah jadi semua jenis BBM sekaligus: ${ringkasan}. Tunggu sampai badge "Diolah" hilang.`, 'info');
+            notify(`${kilang.nama} mulai mengolah BBL mentah jadi semua jenis BBM sekaligus: ${ringkasan}. Pajak Pengolahan ${formatRupiah(pajakTotal)}. Tunggu sampai badge "Diolah" hilang.`, 'info');
         }
 
         const openKapPanels = new Set(); // id kilang yang panel "Kapasitas Depo"-nya sedang dibuka user - dipakai supaya tidak ikut nutup tiap renderRefineries()
@@ -759,7 +785,7 @@
                     ? `<span id="kap-refine-${kilang.id}-${key}" class="${slot.refining ? '' : 'hidden'} text-[8px] text-amber-300 font-semibold shrink-0 ml-1"><i class="fa-solid fa-industry fa-fade mr-0.5"></i>Diolah</span>`
                     : '';
                 const refineInfo = isBbmRefine
-                    ? `<div class="text-[9px] text-gray-300 mb-1"><i class="fa-solid fa-arrows-turn-right mr-1 text-amber-500"></i>Diolah dari stok BBL mentah lewat tombol Konversi &middot; butuh ${meta.refineRatio.toLocaleString('id-ID', { maximumFractionDigits: 2 })} Bbl mentah / ${meta.unit}</div>`
+                    ? `<div class="text-[9px] text-gray-300 mb-1"><i class="fa-solid fa-arrows-turn-right mr-1 text-amber-500"></i>Diolah dari stok BBL mentah lewat tombol Konversi &middot; butuh ${meta.refineRatio.toLocaleString('id-ID', { maximumFractionDigits: 2 })} Bbl mentah / ${meta.unit} &middot; Pajak Pengolahan ${Math.round(ECO.pajakOlahBbm * 100)}% (&asymp; ${formatRupiah(pajakOlahBbm(key, 1))} / ${meta.unit})</div>`
                     : '';
                 const convertBblRow = isBbmRefine
                     ? (slot.refining
@@ -787,8 +813,9 @@
                 </div>`;
             }).join('<div class="border-t border-gray-800/70"></div>');
 
+            const lpgInfo = `<div class="text-[9px] text-gray-300 mt-1.5"><i class="fa-solid fa-arrows-turn-right mr-1 text-amber-500"></i>Konversi LPG: susut 8% &middot; Pajak Pengolahan ${Math.round(ECO.pajakOlahLpg * 100)}% (&asymp; ${formatRupiah(pajakOlahLpg(1))} / Ton curah)</div>`;
             const convertBtn = (kilang.kap.lpg_curah && kilang.kap.lpg_tabung)
-                ? (kilang.kap.lpg_tabung.refining
+                ? lpgInfo + (kilang.kap.lpg_tabung.refining
                     ? `<button disabled class="w-full mt-1.5 bg-amber-900/60 text-amber-200 text-[10px] font-bold py-1.5 rounded cursor-not-allowed"><i class="fa-solid fa-industry fa-fade mr-1"></i> Sedang Diolah Jadi Tabung...</button>`
                     : `<button onclick="convertLpgCurah('${kilang.id}')" class="w-full mt-1.5 bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold py-1.5 rounded"><i class="fa-solid fa-arrows-turn-to-dots mr-1"></i> Konversi LPG Curah &rarr; Tabung</button>`)
                 : '';
@@ -1294,6 +1321,7 @@
                 if (!spbu.blocked) activeSpbuCount++;
                 let markerColor = spbu.tipe === 'COCO' ? '#3b82f6' : '#a855f7';
                 if (spbu.has_lpg) markerColor = '#eab308';
+                if (spbu.jenis === 'SPPBE') markerColor = '#f97316';
                 if (spbu.blocked) markerColor = '#ef4444';
 
                 const marker = L.circleMarker([spbu.lat, spbu.lon], {
@@ -1308,11 +1336,12 @@
                     <div class="text-gray-900 font-sans p-1">
                         <div class="text-[10px] font-bold text-blue-700">${spbu.kode}</div>
                         <strong class="text-xs font-bold block">${spbu.nama}</strong>
-                        <div class="text-[10px] text-gray-600">Kab/Kota: ${spbu.region}</div>
-                        <div class="text-[10px] text-gray-600">Wilayah BBM (Depo): <b>${spbu.wilayahBbmNama || '-'}</b>${spbu.wilayahBbmJarak != null ? ` (&plusmn;${spbu.wilayahBbmJarak} km)` : ''}</div>
+                        <div class="text-[10px] text-gray-600">Kab/Kota: ${spbu.region}${spbu.kecamatan ? ' &middot; Kec. ' + spbu.kecamatan : ''}</div>
+                        <div class="text-[10px] text-gray-600">Jenis: <b>${spbu.jenis === 'SPPBE' ? 'SPPBE (outlet LPG, tanpa BBM)' : spbu.has_lpg ? 'SPBU + LPG' : 'SPBU (BBM saja)'}</b></div>
+                        ${spbu.jenis === 'SPPBE' ? '' : `<div class="text-[10px] text-gray-600">Wilayah BBM (Depo): <b>${spbu.wilayahBbmNama || '-'}</b>${spbu.wilayahBbmJarak != null ? ` (&plusmn;${spbu.wilayahBbmJarak} km)` : ''}</div>`}
                         ${spbu.has_lpg ? `<div class="text-[10px] text-gray-600">Wilayah LPG (Depo): <b>${spbu.wilayahLpgNama || '-'}</b>${spbu.wilayahLpgJarak != null ? ` (&plusmn;${spbu.wilayahLpgJarak} km)` : ''}</div>` : ''}
                         <div class="text-[10px] text-gray-600">Keramaian: <b>${TRAFFIC[spbu.traffic || (spbu.traffic = pickTraffic())].label}</b> &middot; konsumsi BBM/LPG ${TRAFFIC[spbu.traffic].mult}x</div>
-                        <div class="text-[10px] text-gray-600">${spbu.tipe === 'COCO' ? 'Milik perusahaan (dikelola swasta)' : 'Mitra: ' + esc(spbu.mitra ? spbu.mitra.nama : '-')}${spbu.has_lpg ? ' &middot; + LPG' : ''}</div>
+                        <div class="text-[10px] text-gray-600">${spbu.tipe === 'COCO' ? 'Milik perusahaan (dikelola swasta)' : 'Mitra: ' + esc(spbu.mitra ? spbu.mitra.nama : '-')}${spbu.jenis === 'SPPBE' ? '' : spbu.has_lpg ? ' &middot; + LPG' : ''}</div>
                         ${spbu.blocked ? '<div class="text-[10px] font-bold text-red-600">DIBLOKIR - operasional off</div>' : ''}
                     </div>
                 `);

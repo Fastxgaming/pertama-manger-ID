@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/mobile.css">
+    <link rel="stylesheet" href="css/tutorial.css">
 </head>
 <body class="bg-gray-950 text-gray-100 font-sans h-screen flex flex-col overflow-hidden">
 
@@ -132,7 +133,7 @@
                 <div class="flex flex-col items-center gap-1.5 bg-gray-950/50 border border-gray-800 rounded-xl py-3 px-1"><i class="fa-solid fa-right-left text-orange-400 text-lg"></i>Bursa P2P</div>
             </div>
 
-            <p class="text-[10px] text-gray-400 mt-6"><i class="fa-solid fa-circle-info mr-1 text-gray-500"></i>Ada tutorial singkat di dalam game untuk pemain baru.</p>
+            <p class="text-[10px] text-gray-400 mt-6"><i class="fa-solid fa-circle-info mr-1 text-gray-500"></i>Ada tutorial interaktif di dalam game, dari Pemula sampai Sultan.</p>
             <p class="text-[10px] text-gray-500 mt-2">&copy; 2026 by Studio Game &middot; <span id="app-version-splash" class="text-cyan-300/80 font-semibold"></span></p>
         </div>
     </div>
@@ -158,7 +159,7 @@
                     <div><label class="text-gray-400 block mb-1 font-semibold"><i class="fa-solid fa-envelope w-4 text-teal-400"></i> Email</label><input id="reg-email" type="email" autocomplete="email" placeholder="email@contoh.com" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-gray-100 placeholder-gray-600 focus:outline-none focus:border-teal-500"></div>
                     <div><label class="text-gray-400 block mb-1 font-semibold"><i class="fa-solid fa-lock w-4 text-teal-400"></i> Password</label><input id="reg-pass" type="password" data-pw autocomplete="new-password" placeholder="Minimal 6 karakter" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-gray-100 placeholder-gray-600 focus:outline-none focus:border-teal-500"></div>
                     <div><label class="text-gray-400 block mb-1 font-semibold"><i class="fa-solid fa-lock w-4 text-teal-400"></i> Ulangi Password</label><input id="reg-pass2" type="password" data-pw autocomplete="new-password" placeholder="Ketik ulang password" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-gray-100 placeholder-gray-600 focus:outline-none focus:border-teal-500"></div>
-                    <div class="text-[11px] text-gray-400 bg-gray-950 border border-gray-800 rounded-lg p-2.5"><i class="fa-solid fa-gift text-emerald-400 mr-1"></i> Modal awal <b class="text-emerald-400">Rp 650 Juta</b>. Belum ada armada &amp; kru: beli truk termurah, urus KIR/STNK/plat, lalu rekrut supir &amp; kernet. Kilang Tuban aktif dengan stok awal 750.000 Bbl.</div>
+                    <div class="text-[11px] text-gray-400 bg-gray-950 border border-gray-800 rounded-lg p-2.5"><i class="fa-solid fa-gift text-emerald-400 mr-1"></i> Modal awal <b class="text-emerald-400">Rp 650 Juta</b>. Belum ada armada &amp; kru: beli truk termurah, urus KIR/STNK/plat, lalu rekrut supir &amp; kernet. Kilang Tuban aktif dengan tangki BBL mentah dan LPG Curah terisi 80% (4 juta Bbl &amp; 560.000 Ton).</div>
                     <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-lg transition shadow-lg"><i class="fa-solid fa-user-plus mr-2"></i>Buat Akun &amp; Mulai</button>
                 </form>
                 <form id="auth-form-login" onsubmit="submitAuth(event,'login')" class="space-y-3 text-xs hidden" autocomplete="off">
@@ -239,9 +240,6 @@
         <div id="header-actions-row" class="flex items-stretch gap-2 lg:justify-center">
             <button onclick="openTutorial(false)" class="hbtn" style="--hb:#2dd4bf;--hbg:rgba(45,212,191,.14)" title="Buka tutorial cara main">
                 <i class="hico fa-solid fa-circle-question"></i><span class="hlbl">Tutorial</span>
-            </button>
-            <button id="btn-pause-toggle" class="hbtn" style="--hb:#94a3b8;--hbg:rgba(148,163,184,.14)" title="Jeda permainan">
-                <i class="hico fa-solid fa-pause"></i><span class="hlbl">Jeda</span>
             </button>
             <button id="btn-admin" onclick="openAdmin()" class="hbtn hidden" style="--hb:#f87171;--hbg:rgba(248,113,113,.15)" title="Panel admin: kirim top up ke pemain">
                 <i class="hico fa-solid fa-user-shield"></i><span class="hlbl">Admin</span>
@@ -367,7 +365,7 @@
             <!-- Body (scrollable) -->
             <div class="overflow-y-auto custom-scrollbar px-5 py-4 space-y-3.5">
 
-                <!-- Section: Cek UID & Kirim Top Up -->
+                <!-- Section: Cek UID & Kirim Top Up (UID pemain di kolom ini dipakai semua bagian lain; bagian kirim saldo/pass/BBL khusus owner) -->
                 <div class="bg-gray-950/60 border border-gray-800 rounded-xl p-3.5">
                     <div class="flex items-center gap-2 mb-3 text-emerald-400 font-bold text-[11px] uppercase tracking-wide"><i class="fa-solid fa-paper-plane w-3.5 text-center"></i>Kirim Top Up</div>
 
@@ -462,6 +460,69 @@
                         <div id="adm-broadcast-list" class="space-y-1 text-[10px] font-mono max-h-32 overflow-y-auto"></div>
                     </div>
                 </div>
+                <!-- Section: ISI BAHAN MENTAH per kilang/depo (owner) -->
+                <div id="adm-mentah-sec" class="owner-only hidden bg-gray-950/60 border border-sky-500/30 rounded-xl p-3.5">
+                    <div class="flex items-center gap-2 mb-1 text-sky-300 font-bold text-[11px] uppercase tracking-wide"><i class="fa-solid fa-droplet w-3.5 text-center"></i>Owner &middot; Isi Bahan Mentah</div>
+                    <p class="text-[10px] text-gray-500 mb-3">Isi BBL mentah atau LPG Curah di kilang/depo mana pun milik UID pemain di kolom atas. Diterapkan otomatis saat pemain online, tidak melebihi kapasitas tangki, dan hanya untuk kilang/depo yang sudah dibuka pemain.</p>
+
+                    <label class="text-gray-400 block mb-1 font-semibold">Kilang / Depo</label>
+                    <select id="adm-mt-kilang" onchange="admMtUpdate()" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-gray-100 focus:outline-none focus:border-sky-500 transition"></select>
+
+                    <label class="text-gray-400 block mb-1 mt-3 font-semibold">Bahan</label>
+                    <select id="adm-mt-bahan" onchange="admMtUpdate()" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-gray-100 focus:outline-none focus:border-sky-500 transition"></select>
+
+                    <div class="grid grid-cols-2 gap-2 mt-3">
+                        <div>
+                            <label class="text-gray-400 block mb-1 font-semibold">Mode</label>
+                            <select id="adm-mt-mode" onchange="admMtUpdate()" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-gray-100 focus:outline-none focus:border-sky-500 transition">
+                                <option value="full">Isi penuh</option>
+                                <option value="add">Tambah jumlah</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-gray-400 block mb-1 font-semibold">Jumlah <span id="adm-mt-unit" class="text-gray-600 font-normal"></span></label>
+                            <input id="adm-mt-amount" type="number" min="1" max="10000000" step="1" placeholder="Jumlah" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-gray-100 font-mono focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/40 transition">
+                        </div>
+                    </div>
+                    <div id="adm-mt-info" class="text-[10px] text-gray-500 mt-2 min-h-[1rem]"></div>
+                    <div id="adm-mt-msg" class="hidden mt-2 text-[11px] rounded-lg px-3 py-2 border"></div>
+                    <button id="adm-mt-send" onclick="adminFillMentah()" class="w-full mt-3 bg-sky-700 hover:bg-sky-600 disabled:opacity-50 text-white font-bold py-2.5 rounded-lg transition"><i class="fa-solid fa-droplet mr-1.5"></i>Kirim Bahan Mentah</button>
+                </div>
+                <!-- Section: SAKLAR DARURAT (owner) - dokumen config/flags -->
+                <div id="adm-flags-sec" class="owner-only hidden bg-gray-950/60 border border-red-500/40 rounded-xl p-3.5">
+                    <div class="flex items-center gap-2 mb-1 text-red-300 font-bold text-[11px] uppercase tracking-wide"><i class="fa-solid fa-triangle-exclamation w-3.5 text-center"></i>Owner &middot; Saklar Darurat</div>
+                    <p class="text-[10px] text-gray-500 mb-3">Pakai saat ada eksploit. Berlaku real-time ke semua pemain dan ditegakkan juga oleh server (Firestore Rules), jadi klien yang dimodifikasi tidak bisa menembusnya. Setiap perubahan tercatat di audit.</p>
+                    <div id="adm-flags-rows" class="space-y-2"></div>
+                    <div class="mt-3 pt-3 border-t border-gray-800/70">
+                        <div class="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mb-1.5">Pesan untuk pemain saat maintenance</div>
+                        <div class="flex gap-2">
+                            <input id="adm-flags-msg" maxlength="300" placeholder="Contoh: Perbaikan bug, kembali sekitar 30 menit." class="flex-1 min-w-0 bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-gray-100 focus:outline-none focus:border-red-500 transition">
+                            <button type="button" onclick="ownerSaveFlagMsg()" class="shrink-0 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold px-3.5 rounded-lg transition">Simpan</button>
+                        </div>
+                        <div id="adm-flags-meta" class="text-[10px] text-gray-600 mt-2"></div>
+                    </div>
+                </div>
+                <!-- Section: OWNER DEVELOPER (hanya tampil untuk admins/{uid}.role == 'owner') -->
+                <div id="adm-owner-sec" class="owner-only hidden bg-gray-950/60 border border-yellow-500/30 rounded-xl p-3.5">
+                    <div class="flex items-center gap-2 mb-1 text-yellow-300 font-bold text-[11px] uppercase tracking-wide"><i class="fa-solid fa-gem w-3.5 text-center"></i>Owner &middot; Unit Limited Edition</div>
+                    <p class="text-[10px] text-gray-500 mb-3">Atur tampil di dealer + kuota tiap model, atau beri unit langsung ke UID pemain di kolom atas. Nomor seri otomatis dan tidak dipakai ulang.</p>
+                    <div id="adm-ltd-models" class="space-y-2"></div>
+                    <div class="mt-3 pt-3 border-t border-gray-800/70">
+                        <div class="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mb-1.5">Beri unit ke UID di atas</div>
+                        <div class="flex gap-2">
+                            <select id="adm-ltd-grant-model" class="flex-1 min-w-0 bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-gray-100 focus:outline-none focus:border-yellow-500 transition"></select>
+                            <button id="adm-ltd-grant-btn" onclick="adminGrantLimited()" class="shrink-0 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-gray-950 font-bold px-4 rounded-lg transition"><i class="fa-solid fa-gift mr-1"></i>Beri</button>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-gray-800/70">
+                        <div class="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mb-1.5">Unit limited terakhir</div>
+                        <div id="adm-ltd-list" class="space-y-1 text-[10px] font-mono max-h-40 overflow-y-auto"></div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-gray-800/70">
+                        <div class="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mb-1.5">Catatan audit (25 terakhir)</div>
+                        <div id="adm-audit-list" class="space-y-1 text-[10px] font-mono max-h-40 overflow-y-auto"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Footer -->
@@ -539,7 +600,7 @@
     </div>
 
     <!-- Main Workspace Grid -->
-    <div class="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
+    <div id="workspace-grid" class="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
 
         <!-- Sidebar Left: Control Center -->
         <aside id="left-aside" class="nav-only w-full lg:w-[480px] lg:shrink-0 max-h-[60vh] lg:max-h-none bg-gray-900 border-r border-gray-800 flex flex-col lg:flex-row z-10 shadow-2xl overflow-hidden">
@@ -760,6 +821,7 @@
                         <button onclick="selectDealerCat('depo-bbl')" data-dcat="depo-bbl" class="dealer-cat-btn shrink-0 whitespace-nowrap py-2 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition"><i class="fa-solid fa-truck-ramp-box"></i> Truk BBL Antar Depo</button>
                         <button onclick="selectDealerCat('kapal-bbm')" data-dcat="kapal-bbm" class="dealer-cat-btn shrink-0 whitespace-nowrap py-2 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition"><i class="fa-solid fa-ship"></i> Kapal BBM</button>
                         <button onclick="selectDealerCat('kapal-lpg')" data-dcat="kapal-lpg" class="dealer-cat-btn shrink-0 whitespace-nowrap py-2 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition"><i class="fa-solid fa-ship"></i> Kapal LPG</button>
+                        <button onclick="selectDealerCat('limited')" data-dcat="limited" class="dealer-cat-btn hidden shrink-0 whitespace-nowrap py-2 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition text-yellow-300"><i class="fa-solid fa-gem"></i> Limited</button>
                     </div>
 
                     <div class="dealer-cat-panel bg-gray-950 p-3.5 rounded-xl border border-gray-800 shadow" data-dcat-panel="bbm">
@@ -814,6 +876,15 @@
                         </h3>
                         <p class="text-[11px] text-gray-400 mb-2.5">Khusus mengangkut pasokan curah antar Kilang/Depo yang punya akses pelabuhan. Tidak bisa dipakai kirim ke SPBU.</p>
                         <div id="dealer-kapal-lpg-list" class="space-y-2 text-xs"></div>
+                    </div>
+
+                    <div class="dealer-cat-panel hidden bg-gray-950 p-3.5 rounded-xl border border-gray-800 shadow border-t-2 border-t-yellow-400" data-dcat-panel="limited">
+                        <h3 class="text-xs font-bold text-yellow-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                            <span>Limited Edition Developer</span>
+                            <i class="fa-solid fa-gem"></i>
+                        </h3>
+                        <p class="text-[11px] text-gray-400 mb-2.5">Unit edisi terbatas dengan nomor seri. Jumlahnya dibatasi server dan hanya tersedia selama developer membukanya. Tidak bisa dijual ke Bursa P2P maupun Jual Instan.</p>
+                        <div id="dealer-limited-list" class="space-y-2 text-xs"></div>
                     </div>
                 </div>
 
@@ -940,6 +1011,7 @@
 
                 <!-- Tab Bursa P2P: Jual-beli unit truk bekas antar pemain (akun Firebase nyata) -->
                 <div id="tab-bursa" class="tab-content hidden space-y-4">
+                    <div id="bursa-off-note" class="hidden bg-red-500/10 border border-red-500/40 rounded-xl p-3 text-[11px] text-red-200 flex gap-2"><i class="fa-solid fa-store-slash mt-0.5"></i><span data-note></span></div>
                     <div id="bursa-claim-box" class="hidden bg-gray-950 border border-emerald-500/30 rounded-xl p-3.5 space-y-2"></div>
 
                     <div class="bg-gray-950 p-3.5 rounded-xl border border-gray-800 shadow border-l-4 border-l-orange-500">
@@ -1189,20 +1261,6 @@
         </div>
     </div>
 
-    <!-- Modal Tutorial: panduan singkat langkah demi langkah untuk pemain baru -->
-    <div id="tutorial-overlay" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[10600] flex items-center justify-center p-4">
-        <div class="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-sm p-5 text-center border-t-4 border-t-teal-500">
-            <div id="tut-icon" class="w-16 h-16 bg-teal-600/20 text-teal-400 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl border border-teal-500/30"><i class="fa-solid fa-gas-pump"></i></div>
-            <h3 id="tut-title" class="text-sm font-bold text-gray-100 mb-1.5"></h3>
-            <p id="tut-desc" class="text-xs text-gray-400 leading-relaxed mb-4"></p>
-            <div id="tut-dots" class="flex items-center justify-center gap-1.5 mb-4"></div>
-            <div class="flex gap-2">
-                <button id="tut-skip" onclick="skipTutorial()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2.5 rounded-lg text-xs transition">Lewati</button>
-                <button id="tut-next" onclick="nextTutorial()" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-lg text-xs transition"></button>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal Surat Jalan BBM: dokumen dispatch + tanda tangan digital + konfirmasi keberangkatan -->
     <div id="surat-jalan-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] hidden flex items-center justify-center p-4">
         <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-lg w-full shadow-2xl border-t-4 border-t-emerald-500 text-left max-h-[92vh] flex flex-col">
@@ -1309,7 +1367,6 @@
                 </div>
                 <div class="flex items-center justify-between gap-2 flex-wrap">
                     <div id="recruit-sorts" class="flex gap-1.5 flex-wrap"></div>
-                    <button onclick="refreshCandidates()" class="text-[11px] text-purple-400 hover:text-purple-300 font-semibold"><i class="fa-solid fa-rotate mr-1"></i>Cari Kandidat Baru</button>
                 </div>
                 <div id="recruit-status" class="hidden text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1.5"></div>
             </div>
@@ -1470,5 +1527,8 @@
     <script src="js/10c-kontrak-pso.js"></script>
     <script src="js/11-hulu-upstream.js"></script>
     <script src="js/12-offline.js"></script>
+    <script src="js/13-tutorial.js"></script>
+    <script src="js/14-limited-edition.js"></script>
+    <script src="js/15-saklar-darurat.js"></script>
 </body>
 </html>

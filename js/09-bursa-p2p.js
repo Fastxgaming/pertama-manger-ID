@@ -1,6 +1,6 @@
         // ===== Bursa P2P: state lokal =====
         let bursaListings = [], bursaListingsUnsub = null, bursaSalesUnsub = null;
-        let pendingBursaSales = [], bursaSaleInflight = new Set(), bursaBuyBusy = new Set();
+        let pendingBursaSales = [], bursaSaleInflight = new Set(), bursaBuyBusy = new Set(), bursaSaleCredited = new Set();
         const bursaSeen = new Set();
         const rpFmt = n => 'Rp ' + n.toLocaleString('id-ID');
 
@@ -107,11 +107,13 @@
         }
 
         // ----- Panel admin -----
-        let isAdminUser = false;
+        let isAdminUser = false, isOwnerUser = false;   // owner = admins/{uid}.role == 'owner' (Rules yang menjaga; ini hanya tampilan)
         async function checkAdmin() {
             if (!window.fb || !currentAccount) return;
             isAdminUser = await fb.isAdmin(currentAccount.id);
+            isOwnerUser = isAdminUser && await fb.isOwnerDev(currentAccount.id);
             document.getElementById('btn-admin').classList.toggle('hidden', !isAdminUser);
+            if (typeof flagsOnAdminChecked === 'function') flagsOnAdminChecked();   // saklar darurat: owner dikecualikan dari layar maintenance
         }
         function admMsg(t, ok) { const el = document.getElementById('adm-msg'); el.textContent = t; el.className = 'mt-3 text-[11px] rounded-lg px-3 py-2 border ' + (ok ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30' : 'text-red-300 bg-red-500/10 border-red-500/30') + (t ? '' : ' hidden'); }
         async function renderGrants() {
@@ -142,6 +144,12 @@
             document.getElementById('adm-custom-days').value = '';
             admToggleOnlyCheck();
             document.getElementById('admin-modal').classList.remove('hidden'); renderGrants(); renderBroadcastList();
+            document.querySelectorAll('#admin-modal .owner-only').forEach(el => el.classList.toggle('hidden', !isOwnerUser));
+            { const po = document.querySelector('#adm-ban-days option[value="0"]'); if (po) { po.hidden = !isOwnerUser; po.disabled = !isOwnerUser; } }   // admin biasa: blokir sementara saja
+            ['adm-send', 'adm-fill'].forEach(id => { const b = document.getElementById(id); if (b) { b.disabled = !isOwnerUser; b.title = isOwnerUser ? '' : 'Khusus owner developer'; } });
+            if (isOwnerUser) { renderMentahPanel(); admMtMsg(''); }
+            if (isOwnerUser && typeof renderOwnerPanel === 'function') renderOwnerPanel();
+            if (isOwnerUser && typeof renderFlagsPanel === 'function') renderFlagsPanel();
         }
         function closeAdmin() { document.getElementById('admin-modal').classList.add('hidden'); }
         // Saat "hanya centang" dicentang, paket & nominal khusus dinonaktifkan (tidak dipakai), dan otomatis
@@ -199,7 +207,7 @@
             if (pkg.pass) { // Pass: aktif langsung di server (koleksi passes), tanpa klaim dan tanpa saldo
                 if (!(await showConfirm(`Aktifkan ${pkg.label} untuk ${pl.company || 'UID ini (TIDAK ditemukan di leaderboard)'}?\nUID: ${uid}`, { title: 'Aktifkan Pass', iconClass: 'fa-ticket', theme: 'blue', okLabel: 'Aktifkan' }))) return;
                 btn.disabled = true;
-                try { await fb.adminGrantPass(currentAccount.id, uid, pkg.pass, pkg.pdays); admMsg(`${pkg.label} aktif untuk ${pl.company || uid}.`, true); showModal('Pass Aktif', `${pkg.label} berhasil diaktifkan untuk ${pl.company || uid}.`, 'fa-ticket', 'blue'); }
+                try { await fb.adminGrantPass(currentAccount.id, uid, pkg.pass, pkg.pdays); fb.audit(currentAccount.id, 'grant_pass', uid, pkg.label); admMsg(`${pkg.label} aktif untuk ${pl.company || uid}.`, true); showModal('Pass Aktif', `${pkg.label} berhasil diaktifkan untuk ${pl.company || uid}.`, 'fa-ticket', 'blue'); }
                 catch (e) { console.warn('Pass gagal:', e); admMsg('Gagal mengaktifkan pass (' + (e.code || e.message) + ').', false); }
                 finally { btn.disabled = false; }
                 return;
@@ -232,6 +240,7 @@
             btn.disabled = true;
             try {
                 await fb.adminGrant(currentAccount.id, uid, sendPkg, document.getElementById('adm-note').value.trim());
+                fb.audit(currentAccount.id, 'grant_topup', uid, (sendPkg.label || '') + ' cash=' + sendPkg.cash + ' hari=' + sendPkg.days);
                 admMsg(`Berhasil dikirim ke ${pl.company || uid}. Pemain tinggal menekan Klaim di kotak Notifikasi Top Up.`, true);
                 showModal('Top Up Terkirim', `${sendPkg.label}${centangTxt} berhasil dikirim ke ${pl.company || uid}.`, 'fa-circle-check', 'blue');
                 document.getElementById('adm-uid').value = ''; document.getElementById('adm-note').value = ''; document.getElementById('adm-player').textContent = '';
@@ -260,7 +269,7 @@
             if (!(await showConfirm(`Kirim pengumuman ini ke SEMUA pemain (termasuk yang sedang offline, akan mereka terima saat login berikutnya)?\n\n"${msg}"`, { title: 'Kirim Broadcast', iconClass: 'fa-tower-broadcast', theme: 'amber', okLabel: 'Kirim ke Semua' }))) return;
             btn.disabled = true;
             try {
-                await fb.sendBroadcast(currentAccount.id, msg, level);
+                await fb.sendBroadcast(currentAccount.id, msg, level); fb.audit(currentAccount.id, 'broadcast', '', String(msg).slice(0, 80));
                 admBroadcastMsg('Terkirim. Pemain yang offline akan otomatis menerimanya begitu mereka login lagi.', true);
                 inp.value = '';
                 renderBroadcastList();
@@ -297,7 +306,7 @@
             const reason = document.getElementById('adm-ban-reason').value.trim(), label = days ? `${days} hari` : 'PERMANEN';
             if (!(await showConfirm(`Blokir UID ${uid} selama ${label}?${reason ? '\nAlasan: ' + reason : ''}`, { title: 'Blokir Pemain', iconClass: 'fa-ban', theme: 'red', okLabel: 'Blokir' }))) return;
             try {
-                await fb.banPlayer(currentAccount.id, uid, days, reason);
+                await fb.banPlayer(currentAccount.id, uid, days, reason); fb.audit(currentAccount.id, 'ban', uid, (days ? days + ' hari' : 'permanen') + ' ' + (reason || ''));
                 admMsg(`UID ${uid} diblokir (${label}).`, true);
                 showModal('Pemain Diblokir', `UID ${uid} diblokir ${label}.${reason ? ' Alasan: ' + reason + '.' : ''}\nBlokir berlaku mulai login berikutnya pemain tersebut.`, 'fa-ban', 'red');
                 document.getElementById('adm-ban-reason').value = '';
@@ -310,7 +319,7 @@
             if (uid.length < 20) return admMsg('UID tidak valid.', false);
             if (!(await showConfirm(`Buka blokir UID ${uid}?`, { title: 'Buka Blokir', iconClass: 'fa-lock-open', theme: 'blue', okLabel: 'Buka Blokir' }))) return;
             try {
-                await fb.unbanPlayer(uid);
+                await fb.unbanPlayer(uid); fb.audit(currentAccount.id, 'unban', uid, '');
                 admMsg(`UID ${uid} dibuka blokirnya.`, true);
                 showModal('Blokir Dibuka', `UID ${uid} sudah bisa login kembali.`, 'fa-lock-open', 'blue');
                 adminLookup();
@@ -329,6 +338,7 @@
         async function forceBanKick(ban) {
             if (!currentAccount) return;
             stopBanListener();
+            if (typeof stopFlagsListener === 'function') stopFlagsListener();
             skipSave = true; // cegah autosave nyelip sebelum sesi ditutup
             currentAccount = null;
             try { await fb.out(); } catch (e) {}
@@ -351,11 +361,68 @@
             addLog(depo ? `ISI BBL ADMIN: tangki BBL ${depo} depo cabang diisi penuh (+${Math.round(total).toLocaleString('id-ID')} Bbl).` : 'ISI BBL ADMIN: belum ada depo cabang yang dibuka, tidak ada yang diisi.', depo ? 'success' : 'warning');
             if (depo) notify(`Admin mengisi penuh BBL di ${depo} depo cabang.`, 'info');
         }
+        // ===== ISI BAHAN MENTAH PER KILANG (perintah owner) =====
+        // Bahan 'bbl' = BBL mentah (kilang.stok_current/stok_max, Bbl); 'lpg_curah' = tangki LPG Curah (kilang.kap.lpg_curah.cur/max, Ton).
+        // Selalu dibatasi kapasitas tangki. Kilang yang belum dibuka pemain tidak diisi (perintah tetap ditandai selesai).
+        function mentahSlot(k, bahan) {
+            if (!k) return null;
+            if (bahan === 'bbl') return (k.id === 'KILANG-01' || String(k.tipe).includes('BBM')) && k.stok_max > 0 ? { get cur() { return k.stok_current; }, set cur(v) { k.stok_current = v; }, max: k.stok_max, unit: 'Bbl', label: 'BBL mentah' } : null;
+            if (bahan === 'lpg_curah') { const s = k.kap && k.kap.lpg_curah; return s ? { get cur() { return s.cur; }, set cur(v) { s.cur = v; }, max: s.max, unit: 'Ton', label: 'LPG Curah' } : null; }
+            return null;
+        }
+        function applyBahanMentahFill(f) {
+            const k = refineryData.find(x => x.id === f.kilangId), slot = mentahSlot(k, f.bahan), mode = f.mode === 'add' ? 'add' : 'full', amt = Math.max(0, Math.floor(Number(f.amount) || 0));
+            if (!k || !slot) { addLog('ISI BAHAN ADMIN: kilang/bahan tidak dikenali, perintah dilewati.', 'warning'); return; }
+            if (!k.is_unlocked) { addLog(`ISI BAHAN ADMIN: ${k.nama} belum kamu buka, ${slot.label} tidak diisi.`, 'warning'); notify(`Admin mencoba mengisi ${slot.label} di ${k.nama}, tapi depo ini belum dibuka.`, 'info'); return; }
+            const ruang = Math.max(0, slot.max - slot.cur), tambah = mode === 'full' ? ruang : Math.min(amt, ruang);
+            if (tambah <= 0) { addLog(`ISI BAHAN ADMIN: tangki ${slot.label} ${k.nama} sudah penuh, tidak ada yang ditambah.`, 'warning'); return; }
+            slot.cur = Math.min(slot.max, slot.cur + tambah);
+            renderRefineries(); saveGame();
+            addLog(`ISI BAHAN ADMIN: tangki ${slot.label} ${k.nama} +${Math.round(tambah).toLocaleString('id-ID')} ${slot.unit}.`, 'success');
+            notify(`Admin mengisi ${Math.round(tambah).toLocaleString('id-ID')} ${slot.unit} ${slot.label} di ${k.nama}.`, 'info');
+        }
+        // --- Panel owner: daftar semua kilang/depo + form kirim ---
+        function renderMentahPanel() {
+            const sel = document.getElementById('adm-mt-kilang'); if (!sel) return;
+            const keep = sel.value, grp = {};
+            refineryData.forEach(k => { const g = k.tipe === 'Pusat Utama' ? 'Pusat Utama' : String(k.tipe); (grp[g] = grp[g] || []).push(k); });
+            sel.innerHTML = Object.entries(grp).map(([g, list]) => `<optgroup label="${esc(g)}">${list.map(k => `<option value="${esc(k.id)}">${esc(k.nama)} (${esc(k.id)})</option>`).join('')}</optgroup>`).join('');
+            if (keep && refineryData.some(k => k.id === keep)) sel.value = keep;
+            admMtUpdate();
+        }
+        function admMtUpdate() {
+            const k = refineryData.find(x => x.id === document.getElementById('adm-mt-kilang').value); if (!k) return;
+            const bSel = document.getElementById('adm-mt-bahan'), prev = bSel.value, opts = [];
+            if (mentahSlot(k, 'bbl')) opts.push(['bbl', 'BBL Mentah (Bbl)']);
+            if (mentahSlot(k, 'lpg_curah')) opts.push(['lpg_curah', 'LPG Curah (Ton)']);
+            bSel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join('') || '<option value="">Tidak ada bahan mentah di depo ini</option>';
+            if (opts.some(o => o[0] === prev)) bSel.value = prev;
+            const slot = mentahSlot(k, bSel.value), full = document.getElementById('adm-mt-mode').value === 'full', amt = document.getElementById('adm-mt-amount');
+            document.getElementById('adm-mt-unit').textContent = slot ? '(' + slot.unit + ')' : '';
+            amt.disabled = full || !slot; if (full) amt.value = '';
+            document.getElementById('adm-mt-info').textContent = slot ? `Kapasitas dasar ${k.nama}: ${Math.round(slot.max).toLocaleString('id-ID')} ${slot.unit} (kapasitas pemain bisa berbeda kalau sudah di-upgrade; pengisian dibatasi kapasitas milik pemain).` : '';
+        }
+        function admMtMsg(t, ok) { const el = document.getElementById('adm-mt-msg'); el.textContent = t; el.className = 'mt-2 text-[11px] rounded-lg px-3 py-2 border ' + (ok ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30' : 'text-red-300 bg-red-500/10 border-red-500/30') + (t ? '' : ' hidden'); }
+        async function adminFillMentah() {
+            if (!isAdminUser || !isOwnerUser) return;
+            const uid = admUid(), btn = document.getElementById('adm-mt-send');
+            const k = refineryData.find(x => x.id === document.getElementById('adm-mt-kilang').value), bahan = document.getElementById('adm-mt-bahan').value, mode = document.getElementById('adm-mt-mode').value;
+            const slot = mentahSlot(k, bahan); if (!k || !slot) return admMtMsg('Pilih kilang/depo dan bahan yang valid.', false);
+            const amount = mode === 'full' ? 0 : Math.floor(Number(document.getElementById('adm-mt-amount').value) || 0);
+            if (mode === 'add' && (amount <= 0 || amount > 10000000)) return admMtMsg('Jumlah harus 1 sampai 10.000.000.', false);
+            const pl = await adminLookup(); if (pl === null) return admMtMsg('Periksa UID pemain dulu.', false);
+            const ket = mode === 'full' ? 'diisi PENUH' : `ditambah ${amount.toLocaleString('id-ID')} ${slot.unit}`;
+            if (!(await showConfirm(`${slot.label} di ${k.nama} milik ${pl.company || 'UID ini (TIDAK ditemukan di leaderboard)'} akan ${ket}?\nUID: ${uid}\nDiterapkan otomatis begitu pemain online.`, { title: 'Isi Bahan Mentah', iconClass: 'fa-droplet', theme: 'blue', okLabel: 'Kirim' }))) return;
+            btn.disabled = true;
+            try { await fb.adminFillMentah(currentAccount.id, uid, k.id, bahan, mode, amount); fb.audit(currentAccount.id, 'fill_mentah', uid, `${k.id} ${bahan} ${mode}${mode === 'add' ? ' ' + amount : ''}`); admMtMsg(`Perintah isi ${slot.label} ${k.nama} terkirim ke ${pl.company || uid}. Diterapkan otomatis saat pemain online.`, true); showModal('Perintah Terkirim', `${slot.label} di ${k.nama} milik ${pl.company || uid} akan ${ket} begitu pemain online.`, 'fa-droplet', 'blue'); }
+            catch (e) { console.warn('Fill mentah gagal:', e); admMtMsg('Gagal mengirim perintah (' + (e.code || e.message) + ').', false); }
+            finally { btn.disabled = false; }
+        }
         function startFillListener() {
             if (fillUnsub || !window.fb || !currentAccount) return;
             fillUnsub = fb.listenFills(currentAccount.id, list => list.forEach(f => {
-                if (fillSeen.has(f.id) || f.type !== 'bbl_cabang') return; fillSeen.add(f.id);
-                try { applyBblCabangFill(); } catch (e) { console.error('fill', e); fillSeen.delete(f.id); return; }
+                if (fillSeen.has(f.id) || (f.type !== 'bbl_cabang' && f.type !== 'bahan_mentah')) return; fillSeen.add(f.id);
+                try { if (f.type === 'bahan_mentah') applyBahanMentahFill(f); else applyBblCabangFill(); } catch (e) { console.error('fill', e); fillSeen.delete(f.id); return; }
                 fb.markFillClaimed(f.id).catch(e => console.warn('Tandai fill gagal:', e));
             }));
         }
@@ -365,7 +432,7 @@
             const pl = await adminLookup(); if (pl === null) return admMsg('Periksa UID pemain dulu.', false);
             if (!(await showConfirm(`Isi PENUH tangki BBL di semua depo cabang (bukan Kilang Tuban) milik ${pl.company || 'UID ini (TIDAK ditemukan di leaderboard)'}?\nUID: ${uid}\nDiterapkan otomatis begitu pemain online.`, { title: 'Isi BBL Semua Cabang', iconClass: 'fa-oil-can', theme: 'blue', okLabel: 'Isi Penuh' }))) return;
             btn.disabled = true;
-            try { await fb.adminFillBbl(currentAccount.id, uid); admMsg(`Perintah isi BBL cabang terkirim ke ${pl.company || uid}. Diterapkan otomatis saat pemain online.`, true); showModal('Perintah Terkirim', `BBL semua cabang milik ${pl.company || uid} akan terisi penuh begitu pemain online.`, 'fa-oil-can', 'blue'); }
+            try { await fb.adminFillBbl(currentAccount.id, uid); fb.audit(currentAccount.id, 'fill_bbl', uid, ''); admMsg(`Perintah isi BBL cabang terkirim ke ${pl.company || uid}. Diterapkan otomatis saat pemain online.`, true); showModal('Perintah Terkirim', `BBL semua cabang milik ${pl.company || uid} akan terisi penuh begitu pemain online.`, 'fa-oil-can', 'blue'); }
             catch (e) { console.warn('Fill gagal:', e); admMsg('Gagal mengirim perintah (' + (e.code || e.message) + ').', false); }
             finally { btn.disabled = false; }
         }
@@ -395,7 +462,7 @@
             const items = pendingTopups.map(t => `
                 <div class="flex items-center justify-between gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2.5">
                     <div><div class="text-emerald-300 font-bold text-sm">+${formatRupiah(t.cash)}</div><div class="text-[10px] text-sky-300"><i class="fa-solid fa-circle-check mr-1"></i>Centang biru ${t.days || 0} hari (sudah aktif)</div></div>
-                    <button onclick="claimTopup('${esc(t.id)}')" ${topupInflight.has(t.id) ? 'disabled' : ''} class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-lg">${topupInflight.has(t.id) ? 'Memproses...' : 'Klaim'}</button>
+                    <button onclick="claimTopup('${esc(t.id)}')" ${topupInflight.has(t.id) || topupBlocked() ? 'disabled' : ''} class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-lg">${topupInflight.has(t.id) ? 'Memproses...' : 'Klaim'}</button>
                 </div>`).join('');
             box.innerHTML = n ? `<div class="text-[11px] font-bold text-emerald-300"><i class="fa-solid fa-bell mr-1"></i>Notifikasi Top Up (${n})</div>` + items : '';
             document.getElementById('notif-topup').innerHTML = items || '<div class="text-gray-600 px-1">Tidak ada top up yang menunggu diklaim.</div>';
@@ -404,6 +471,7 @@
         async function claimTopup(id) {
             const t = pendingTopups.find(x => x.id === id);
             if (!t || topupInflight.has(id)) return;
+            if (topupBlocked()) return topupMsg(topupClosedText(), false);   // saklar darurat
             topupInflight.add(id); renderTopupBox();
             try { await creditTopup(t); topupMsg('Top up berhasil diklaim.'); }
             catch (e) { console.warn('Klaim gagal:', e); topupMsg('Klaim belum tuntas (' + (e.code || e.message) + '). Tekan Klaim lagi; saldo tidak akan terhitung dua kali.', false); }
@@ -460,19 +528,23 @@
                 pendingBursaSales.map(s => `
                 <div class="flex items-center justify-between gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2.5">
                     <div class="min-w-0"><div class="text-emerald-300 font-bold text-sm">+${formatRupiah(s.harga)}</div><div class="text-[10px] text-gray-400 truncate">${esc(s.truck.name)} [${esc(s.truck.plat)}] &middot; dibeli ${esc(s.buyerCompany)}</div></div>
-                    <button onclick="claimBursaSale('${esc(s.id)}')" ${bursaSaleInflight.has(s.id) ? 'disabled' : ''} class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-lg shrink-0">${bursaSaleInflight.has(s.id) ? 'Memproses...' : 'Klaim'}</button>
+                    <button onclick="claimBursaSale('${esc(s.id)}')" ${bursaSaleInflight.has(s.id) || bursaBlocked() ? 'disabled' : ''} class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-lg shrink-0">${bursaSaleInflight.has(s.id) ? 'Memproses...' : 'Klaim'}</button>
                 </div>`).join('');
         }
 
         async function claimBursaSale(id) {
             const s = pendingBursaSales.find(x => x.id === id);
             if (!s || bursaSaleInflight.has(id)) return;
+            if (bursaBlocked()) return showModal('Klaim Ditutup', bursaClosedText() + '\n\nPembayaranmu tidak hilang; klaim lagi setelah Bursa dibuka.', 'fa-store-slash', 'red');   // saklar darurat
             bursaSaleInflight.add(id); renderBursaClaimBox();
             try {
-                companyCash += s.harga; totalIncome += s.harga;
-                addFinanceLog(`Bursa P2P: penjualan ${s.truck.name} [${s.truck.plat}] ke ${s.buyerCompany}`, s.harga);
-                updateCashDisplay();
-                addLog(`BURSA P2P: Pembayaran ${formatRupiah(s.harga)} dari ${esc(s.buyerCompany)} untuk ${esc(s.truck.name)} [${esc(s.truck.plat)}] berhasil diklaim.`, 'success');
+                if (!bursaSaleCredited.has(id)) {   // uang cuma dikreditkan sekali per sesi walau penandaan 'sudah diklaim' perlu diulang
+                    bursaSaleCredited.add(id);
+                    companyCash += s.harga; totalIncome += s.harga;
+                    addFinanceLog(`Bursa P2P: penjualan ${s.truck.name} [${s.truck.plat}] ke ${s.buyerCompany}`, s.harga);
+                    updateCashDisplay();
+                    addLog(`BURSA P2P: Pembayaran ${formatRupiah(s.harga)} dari ${esc(s.buyerCompany)} untuk ${esc(s.truck.name)} [${esc(s.truck.plat)}] berhasil diklaim.`, 'success');
+                }
                 await fb.markBursaSaleClaimed(id);
             } catch (e) { console.warn('Klaim bursa gagal:', e); showModal('Klaim Gagal', 'Coba tekan Klaim sekali lagi. (' + (e.code || e.message) + ')', 'fa-triangle-exclamation', 'red'); }
             finally { bursaSaleInflight.delete(id); renderBursaClaimBox(); }
@@ -508,7 +580,7 @@
                     </div>
                     <div class="text-[10px] text-gray-400">Kapasitas ${l.truck.cap} ${l.truck.type === 'LPG' ? 'Ton' : (l.truck.kelas === 'kapal' || l.truck.kelas === 'depo' ? 'Bbl' : 'KL')} &middot; Odometer ${l.truck.odometer.toLocaleString('id-ID')} km &middot; ${l.truck.kelas === 'kapal' ? 'Kondisi Mesin' : 'Ban'} ${l.truck.banPct}%</div>
                     <div class="flex justify-between items-center"><span class="text-emerald-400 font-mono font-bold text-sm">${formatRupiah(l.harga)}</span>
-                    <button onclick="buyBursaListing('${esc(l.id)}')" ${bursaBuyBusy.has(l.id) ? 'disabled' : ''} class="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white px-3 py-1.5 rounded font-bold">${bursaBuyBusy.has(l.id) ? 'Memproses...' : 'Beli'}</button></div>
+                    <button onclick="buyBursaListing('${esc(l.id)}')" ${bursaBuyBusy.has(l.id) || bursaBlocked() ? 'disabled' : ''} class="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white px-3 py-1.5 rounded font-bold">${bursaBuyBusy.has(l.id) ? 'Memproses...' : 'Beli'}</button></div>
                 </div>`).join('') : '<div class="empty-state"><i class="fa-solid fa-store-slash"></i>Belum ada truk dijual pemain lain saat ini.</div>';
 
             document.getElementById('bursa-badge').innerText = pendingBursaSales.length;
@@ -523,6 +595,7 @@
         const bursaSlotMax = () => passHas('bursa') ? BURSA_SLOT_PASS : BURSA_SLOT_BASE;
         async function postTruckToBursa(truckId, harga) {
             if (!currentAccount) return false;
+            if (bursaBlocked()) { showModal('Bursa P2P Ditutup', bursaClosedText(), 'fa-store-slash', 'red'); return false; }   // saklar darurat
             if (!window.fb) { showModal('Belum Siap', 'Firebase belum siap. Periksa koneksi lalu muat ulang halaman.', 'fa-triangle-exclamation', 'red'); return false; }
             const idx = companyFleet.findIndex(t => t.id === truckId);
             if (idx < 0) { showModal('Pilih Truk', 'Pilih unit truk yang ingin dijual terlebih dahulu.', 'fa-truck', 'red'); return false; }
@@ -530,7 +603,7 @@
             if (tolakBelumBalikNama(companyFleet[idx])) return false;
             if (!harga || harga < 1000000) { showModal('Harga Tidak Valid', 'Masukkan harga jual minimal Rp 1.000.000.', 'fa-circle-exclamation', 'red'); return false; }
             let used; try { used = await fb.myBursaCount(currentAccount.id); } catch (e) { used = bursaListings.filter(l => l.sellerUid === currentAccount.id).length; }
-            if (used >= bursaSlotMax()) { showModal('Slot Iklan Penuh', `Iklan aktifmu sudah ${used}/${bursaSlotMax()}. Batalkan atau tunggu ada yang laku${passHas('bursa') ? '' : ', atau tambah slot dengan Pass Juragan (maks ' + BURSA_SLOT_PASS + ' iklan)'}.`, 'fa-tags', 'amber'); return false; }
+            if (used >= bursaSlotMax()) { showModal('Slot Iklan Penuh', `Iklan aktifmu sudah ${used}/${bursaSlotMax()}. Batalkan atau tunggu ada yang laku${passHas('bursa') || !PASS_LIVE.includes('juragan') ? '' : ', atau tambah slot dengan Pass Juragan (maks ' + BURSA_SLOT_PASS + ' iklan)'}.`, 'fa-tags', 'amber'); return false; }
             const truck = companyFleet[idx];
             companyFleet.splice(idx, 1);   // truk keluar dari garasi selama iklan aktif
             try {

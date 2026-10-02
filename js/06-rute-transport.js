@@ -251,7 +251,7 @@
                     const sl = origin.kap && origin.kap.lpg_tabung;
                     if (!sl || sl.cur < truck.cap) return showModal('Stok LPG Tabung Kurang', `Stok LPG Tabung ${origin.nama} tidak cukup untuk ${truck.cap} Ton.`, 'fa-triangle-exclamation', 'red');
                     settleTruckDelivery(no, d);
-                    // Setelah truk berangkat, kembali ke daftar Pesanan SPBU (pesanan yang baru dikirim pindah ke "Dalam perjalanan").
+                    // Setelah truk berangkat, kembali ke daftar Pesanan SPBU (pesanan yang baru dikirim pindah ke daftar Proses di Riwayat).
                     dispatchFocus.LPG = null;
                     switchTab('tab-orders');
                 } });
@@ -300,11 +300,14 @@
         // Varian Heavy Duty (mesin 330 PS Euro 4) dibanding tipe Standar: solar 20% lebih hemat, ban aus 2x lebih lambat, laju jalan +10%.
         const HD_EFEK = { pakaiSolar: 0.80, ausBan: 0.50, laju: 1.10 };
         const isHeavyDuty = t => !!(t && /Heavy Duty/i.test(t.name || ''));
-        const tireWearMult = t => isHeavyDuty(t) ? HD_EFEK.ausBan : 1;
+        // Efek unit: Limited Edition (LIMITED_CATALOG di 03) atau Heavy Duty. Kuncinya sama: pakaiSolar, ausBan, laju.
+        const unitPerk = t => { if (!t) return null; if (t.limited) { const m = limitedModel(t.limited); if (m) return m.perk; } return isHeavyDuty(t) ? HD_EFEK : null; };
+        const unitLaju = t => { const p = unitPerk(t); return p ? p.laju : 0; };   // 0 = tanpa bonus, selain itu pengali kecepatan
+        const tireWearMult = t => { const p = unitPerk(t); return p ? p.ausBan : 1; };
         function kmPerLiterTruk(truck) {
             const cap = (truck && truck.cap) ? (isDepoTruck(truck) ? depoKlEq(truck) : truck.cap) : 0; // truk depo kapasitasnya Bbl -> setara KL untuk tabel konsumsi
             const base = cap <= 8 ? 4.2 : cap <= 16 ? 3.4 : cap <= 24 ? 2.8 : 2.3; // trailer 32 KL / LPG trailer 20 Ton ke atas
-            return isHeavyDuty(truck) ? base / HD_EFEK.pakaiSolar : base;
+            const p = unitPerk(truck); return p ? base / p.pakaiSolar : base;
         }
         // Rasio panjang jalur riil terhadap jarak garis lurus (haversine) antar 2 titik - makin besar rasionya,
         // makin berkelok-kelok jalannya (banyak tikungan/rintangan), makin kecil (mendekati 1) makin lurus & renggang.
@@ -327,7 +330,7 @@
             else if (sinuosity >= 1.12) speed = 68;      // sedikit berkelok
             else if (sinuosity >= 1.05) speed = 74;      // relatif lurus
             else speed = 80;                              // nyaris lurus & renggang, jarang ada belokan
-            if (hd) return Math.max(SPEED_RANGE[0], Math.min(SPEED_RANGE[1] * HD_EFEK.laju, speed * HD_EFEK.laju));
+            if (hd) { const lj = hd === true ? HD_EFEK.laju : hd; return Math.max(SPEED_RANGE[0], Math.min(SPEED_RANGE[1] * lj, speed * lj)); }
             return Math.max(SPEED_RANGE[0], Math.min(SPEED_RANGE[1], speed));
         }
         // Estimasi biaya sekali jalan (one-way) untuk preview sebelum truk berangkat.
@@ -387,7 +390,7 @@
                 const addLand = async (a, b) => {
                     const { pts, real } = await fetchRoute(a, b);
                     const s = sinuosityOf(pts, distKm(a, b));
-                    legs.push({ tipe: 'darat', dari: a.nama || a.name, ke: b.nama || b.name, km: s.total, speed: roadSpeedKmh(s.sinuosity, real, isHeavyDuty(truck)), real, sin: s.sinuosity });
+                    legs.push({ tipe: 'darat', dari: a.nama || a.name, ke: b.nama || b.name, km: s.total, speed: roadSpeedKmh(s.sinuosity, real, unitLaju(truck)), real, sin: s.sinuosity });
                     if (!real) allReal = false;
                 };
                 const oIsl = islandOf(origin), dIsl = islandOf(spbu);

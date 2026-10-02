@@ -84,6 +84,7 @@
         }
 
         async function buyBursaListing(id) {
+            if (bursaBlocked()) return showModal('Bursa P2P Ditutup', bursaClosedText(), 'fa-store-slash', 'red');   // saklar darurat
             if (pphBlokir()) return;
             const l = bursaListings.find(x => x.id === id);
             if (!l || bursaBuyBusy.has(id) || !currentAccount) return;
@@ -131,7 +132,7 @@
             companyCash = sv.cash; totalIncome = sv.income; totalExpense = sv.expense;
             sv.refineries.forEach(r => { const k = refineryData.find(x => x.id === r.id); if (k) { k.is_unlocked = r.u; k.stok_current = r.s; if (r.m) k.stok_max = r.m; if (k.id !== 'KILANG-01' && String(k.tipe).includes('BBM')) k.stok_max = Math.max(k.stok_max || 0, DEPO_BBL_MAX0); /* save lama: tangki mentah depo naik ke 50% Tuban; yang sudah di-upgrade lebih besar tetap */ if (k.id === 'KILANG-01' && k.stok_max < 5000000) k.stok_max = 5000000; /* save lama: naikkan tangki Tuban ke 5 juta Bbl */ k.tutup = !!r.cl; if (r.lvl !== undefined) k.stokUpgradeLevel = r.lvl; if (r.mid !== undefined) k.mekanikId = r.mid; if (r.kap) k.kap = r.kap; /* save lama: tangki LPG dinaikkan ke ukuran baru (yang sudah di-upgrade lebih besar tetap) */ if (k.kap) Object.keys(k.kap).forEach(key => { if (key.startsWith('lpg') && k.kap[key]) k.kap[key].max = Math.max(k.kap[key].max || 0, k.id === 'KILANG-01' ? LPG_TUBAN_MAX0 : LPG_DEPO_MAX0); }); } });
             companyFleet = sv.fleet; companyCrew = sv.crew; crewIdCounter = sv.crewCounter; suratJalanCounter = sv.sj; { const saved = sv.spbu || [], m = new Map(saved.map(s => [s.kode, s]));
-              loadedSpbuList = loadedSpbuList.map(s => m.get(s.kode) || s);
+              loadedSpbuList = loadedSpbuList.map(s => { const x = m.get(s.kode); return x ? { ...x, nama: s.nama, lat: s.lat, lon: s.lon, jenis: s.jenis, has_lpg: s.has_lpg, kecamatan: s.kecamatan } : s; }); /* v1.9.1: save lama ikut koordinat & nama SPBU terbaru */
               const have = new Set(loadedSpbuList.map(s => s.kode)); saved.forEach(s => { if (!have.has(s.kode)) loadedSpbuList.push(s); }); }
             orders = sv.orders || []; ordHist = sv.ordHist || []; nextOrderGt = sv.nextOrderGt || 0;
             // Pesanan SPBU dihitung mundur pakai waktu nyata (lihat ORDER_TTL) - kalau tidak digeser,
@@ -323,11 +324,12 @@
             const gt = document.getElementById('game-time');
             if (gt) gt.classList.toggle('opacity-50', gamePaused);
         }
-        document.getElementById('btn-pause-toggle').addEventListener('click', () => {
+        // Tombol Jeda di header sudah dihapus; logika jeda dipertahankan. Panggil togglePause() dari pemicu baru bila perlu.
+        function togglePause() {
             if (!currentAccount) return;
             setPaused(!gamePaused);
             if (typeof notify === 'function') notify(gamePaused ? 'Permainan dijeda.' : 'Permainan dilanjutkan.', 'info');
-        });
+        }
 
         // ===== STOK SPBU & PESANAN OTOMATIS =====
         const busyIds = new Set();
@@ -364,7 +366,8 @@
         const STOK_TICK_MINUTES = 5;
         let nextStockTickGt = 0; // gameNow() paling cepat stok SPBU boleh diturunkan lagi
 
-        const fuelsOf = s => FUELS.filter(f => !f.lpg || s.has_lpg);
+        const isSppbe = s => s.jenis === 'SPPBE'; // SPPBE = outlet LPG saja: tidak punya tangki BBM, jadi hanya memesan LPG
+        const fuelsOf = s => FUELS.filter(f => f.lpg ? s.has_lpg : !isSppbe(s));
         const capsOf = (type, depotId) => [...new Set(companyFleet.filter(t => t.type === type && isSpbuTruck(t) && (!depotId || truckDepoId(t) === depotId)).map(t => t.cap))]; // depotId diisi = hanya armada berpangkalan di depo itu
         // Slot pesanan per jenis ('BBM'|'LPG'): berapa truk idle, berapa pesanan yang masih menunggu dikirim, dan batasnya.
         function orderSlots(kind) {
@@ -708,11 +711,7 @@
                 `<button onclick="setOrdKilang('${c.key}')" class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border transition ${ordKilangFilter === c.key ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 border-violet-500 text-white shadow shadow-violet-900/30' : 'bg-gray-900 border-gray-800 text-gray-400 hover:text-gray-200'}">${esc(c.label)}</button>`
             ).join('');
             const visibleGroupKeys = ordGroupKeys.filter(key => ordKilangFilter === 'ALL' || key === ordKilangFilter);
-            // Pesanan yang sedang dikirim TIDAK hilang: tampil ringkas di atas daftar supaya pemain tahu pesanannya masih diproses.
-            const TRANSIT_LBL = { muat: 'Muat Kargo', berangkat: 'Berangkat', tiba: 'Tiba di Tujuan', bongkar: 'Bongkar Muat' };
-            const transitOrders = orders.filter(o => (o.inTransit || 0) > 0 && (matchFuel(o)) && (pv === 'ALL' || o.prov === pv));
-            const transitStrip = transitOrders.length ? `<div class="bg-amber-500/5 border border-amber-500/20 rounded-xl p-2.5 space-y-1.5"><div class="text-[10px] font-black uppercase tracking-wide text-amber-400"><i class="fa-solid fa-truck-fast mr-1"></i>Dalam perjalanan (${transitOrders.length})</div>` + transitOrders.map(o => `<div class="flex items-center gap-2 text-[11px] bg-gray-900/70 rounded-lg px-2.5 py-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span><span class="truncate text-gray-300 flex-1">${esc(o.nama)} &middot; ${fuelLabel(o.fuel)} ${o.kl} ${o.unit || 'KL'}</span><b class="text-amber-400 shrink-0">${TRANSIT_LBL[o.tahap] || 'Proses'}</b></div>`).join('') + `</div>` : '';
-            document.getElementById('ord-list').innerHTML = transitStrip + (open.length && visibleGroupKeys.length ? visibleGroupKeys.map(key => {
+            document.getElementById('ord-list').innerHTML = (open.length && visibleGroupKeys.length ? visibleGroupKeys.map(key => {
                 const grp = ordGroups.get(key), k = grp.kilang;
                 return `<div class="space-y-2">
                   <div onclick="setOrdKilang('${key}')" class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide ${k ? 'text-violet-300' : 'text-amber-400'} bg-gray-950/60 border ${k ? 'border-violet-500/20' : 'border-amber-500/20'} rounded-lg px-2.5 py-1.5 cursor-pointer select-none" title="Klik untuk hanya tampilkan bagian ini">

@@ -10,6 +10,19 @@
         // bekas rute lenyap begitu saja). Sekarang truk milik sendiri "diparkir" sebagai titik kecil di lokasi
         // terakhirnya (depot) sampai truk itu ditugaskan berangkat lagi, supaya tidak terasa tiba-tiba menghilang.
         const parkedMarkers = new Map();
+        // Label di atas ikon truk/kapal milik sendiri: baris atas = JULUKAN unit (kalau ada), baris bawah = teks biasa (ID · plat, dst).
+        // Julukan dicari ulang dari armada tiap kali label dibuat/diperbarui, jadi selalu mengikuti julukan terbaru.
+        // Unit pemain lain (remote) tidak punya julukan di sisi sini, jadi labelnya tetap satu baris.
+        function truckTipHtml(id, text, remote) {
+            const u = remote || typeof companyFleet === 'undefined' ? null : companyFleet.find(x => x.id === id);
+            return (u && u.julukan ? `<span class="tt-jk">${esc(u.julukan)}</span>` : '') + esc(text);
+        }
+        function setTruckTip(marker, id, text, remote) { marker._tipText = text; marker.setTooltipContent(truckTipHtml(id, text, remote)); }
+        // Dipanggil saat pemain mengubah julukan: perbarui label unit yang sedang berjalan maupun yang terparkir di peta.
+        function refreshTruckTips(id) {
+            flying.forEach(t => { if (!t.remote && t.e.id === id && t.marker._tipText != null) setTruckTip(t.marker, id, t.marker._tipText, false); });
+            const pm = parkedMarkers.get(id); if (pm && pm._tipText != null) setTruckTip(pm, id, pm._tipText, false);
+        }
 
         // ===== LENCANA STATUS DI IKON TRUK: "MEMUAT" / "BONGKAR" + hitung mundur, tampil tanpa perlu ikon ditekan =====
         // Menempel di bawah ikon (anak dari elemen marker Leaflet, bukan dari .truck-ico yang isinya bisa diganti ikon centang),
@@ -114,7 +127,7 @@
             return h;
         }
         function liveSpeedKmh(t, now) {
-            const range = t.e.hd ? [SPEED_RANGE[0], SPEED_RANGE[1] * HD_EFEK.laju] : SPEED_RANGE;
+            const range = t.e.hd ? [SPEED_RANGE[0], SPEED_RANGE[1] * (t.e.hd === true ? HD_EFEK.laju : t.e.hd)] : SPEED_RANGE;
             const base = t.e.baseSpeedKmh != null ? t.e.baseSpeedKmh : t.e.speedKmh;
             const seed = hashSeed(t.e.id || 'truck');
             const wobble = Math.sin(now / 2600 + seed) * 0.6 + Math.sin(now / 900 + seed * 1.7) * 0.4;
@@ -137,7 +150,8 @@
                 icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: `<div class="truck-ico ${isBoat ? 'boat' : ''}" style="background:${color};${remote ? 'opacity:.85' : ''}"><span class="tf"><i class="fa-solid fa-${isBoat ? 'ship' : 'truck'}"></i></span></div>` }),
                 zIndexOffset: remote ? 500 : 1000
             }).addTo(map);
-            marker.bindTooltip(esc(remote ? `${e.owner} · ${e.plat}` : `${isFerry ? 'Ferry · ' + e.id : isKapal ? 'Kapal · ' + e.id : e.id} · ${e.plat}${e.fase === 'kembali' ? ' · ↩ ke depo' : ''}`), { permanent: true, direction: 'top', offset: [0, -16], className: 'truck-tip' });
+            { const tipText = remote ? `${e.owner} · ${e.plat}` : `${isFerry ? 'Ferry · ' + e.id : isKapal ? 'Kapal · ' + e.id : e.id} · ${e.plat}${e.fase === 'kembali' ? ' · ↩ ke depo' : ''}`;
+              marker.bindTooltip(truckTipHtml(e.id, tipText, remote), { permanent: true, direction: 'top', offset: [0, -16], className: 'truck-tip' }); marker._tipText = tipText; }
             // Info armada saat ikon truk/kapal yang lagi jalan ditekan: Depo asal, Tujuan, Speed & No. Surat Jalan.
             if (!remote) marker.bindPopup(() => truckInfoPopupHtml(e), { className: 'truck-info-popup', closeButton: true, maxWidth: 220 });
             const t = { e, pts, cum, total: cum[cum.length - 1] || 0.01, marker, line, trail, remote, color, isBoat, lastTrail: 0, done: null };
@@ -156,12 +170,12 @@
                     const ic = () => t.marker.getElement() && t.marker.getElement().querySelector('.truck-ico');
                     if (hold && t.haltAt == null) {
                         t.haltAt = now; t.e.halted = seaStormLabel(); t.baseSpd = t.e.speedKmh; t.e.speedKmh = 0;
-                        t.marker.setTooltipContent(esc(`${t.remote ? t.e.owner + ' · ' : ''}Kapal · ${t.e.id} · ⛈ ditahan ${t.e.halted.toLowerCase()}`));
+                        setTruckTip(t.marker, t.e.id, `${t.remote ? t.e.owner + ' · ' : ''}Kapal · ${t.e.id} · ⛈ ditahan ${t.e.halted.toLowerCase()}`, t.remote);
                         if (ic()) ic().style.filter = 'grayscale(.7) brightness(.8)';
                         if (!t.remote) addLog(`CUACA: Kapal ${t.e.id} berhenti di tengah laut karena ${t.e.halted.toLowerCase()}, menunggu cuaca membaik sebelum melanjutkan pelayaran.`, 'warning', 'truck');
                     } else if (!hold && t.haltAt != null) {
                         t.stall = (t.stall || 0) + (now - t.haltAt); t.haltAt = null; t.e.halted = null; t.e.speedKmh = t.baseSpd;
-                        t.marker.setTooltipContent(esc(`${t.remote ? t.e.owner + ' · ' : ''}Kapal · ${t.e.id} · ${t.e.plat}`));
+                        setTruckTip(t.marker, t.e.id, `${t.remote ? t.e.owner + ' · ' : ''}Kapal · ${t.e.id} · ${t.e.plat}`, t.remote);
                         if (ic()) ic().style.filter = '';
                         if (!t.remote) addLog(`CUACA: Cuaca membaik, kapal ${t.e.id} melanjutkan pelayaran dari posisi terakhir.`, 'success', 'truck');
                     }
@@ -214,7 +228,8 @@
                             icon: L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 13], html: `<div class="truck-ico ${t.isBoat ? 'boat' : ''}" style="background:${t.color};opacity:.6;width:26px;height:26px"><span class="tf"><i class="fa-solid fa-${t.isBoat ? 'ship' : 'truck'}"></i></span></div>` }),
                             zIndexOffset: 300
                         }).addTo(map);
-                        parked.bindTooltip(esc(`${t.e.id} · ${t.e.vehicle === 'kapal' && typeof shipStateLabel === 'function' ? shipStateLabel(t.e.id) : 'terparkir/bongkar muatan'}`), { direction: 'top', offset: [0, -14], className: 'truck-tip' });
+                        { const parkText = `${t.e.id} · ${t.e.vehicle === 'kapal' && typeof shipStateLabel === 'function' ? shipStateLabel(t.e.id) : 'terparkir/bongkar muatan'}`;
+                          parked.bindTooltip(truckTipHtml(t.e.id, parkText, false), { direction: 'top', offset: [0, -14], className: 'truck-tip' }); parked._tipText = parkText; }
                         if (t.e.vehicle === 'kapal') parked.bindPopup(() => truckInfoPopupHtml(t.e), { className: 'truck-info-popup', closeButton: true, maxWidth: 220 });
                         parkedMarkers.set(t.e.id, parked);
                         if (truckStage.has(t.e.id)) applyTruckStages();
@@ -405,7 +420,7 @@
             ids.forEach(i => busyIds.add(i));
             populateTruckDropdowns(); populateCrewDropdowns(); renderDriversDashboard(); renderFleetDashboard();
             ownAnims++;
-            const meta = { id: truck.id, hd: isHeavyDuty(truck), plat: truck.plat, type: truck.type, owner: currentAccount ? currentAccount.company : 'Pemain',
+            const meta = { id: truck.id, hd: unitLaju(truck), plat: truck.plat, type: truck.type, owner: currentAccount ? currentAccount.company : 'Pemain',
                            depoNama: origin.nama, dariNama: origin.nama, tujuanNama: spbu.nama, fase: 'berangkat', nomorSJ: d.nomorSJ, jenisMuatan: d.jenisMuatan };
             // Rute PULANG: tujuan otomatis berganti ke depo pangkalan (bukan SPBU lagi), asal = SPBU tempat bongkar.
             const metaBalik = { ...meta, fase: 'kembali', dariNama: spbu.nama, tujuanNama: origin.nama };
@@ -476,7 +491,7 @@
             ownAnims++;
             // Pangkalan kapal = titik berangkat & pulang: pangkalan -> Kilang Tuban (muat) -> tujuan -> pangkalan.
             const base = shipBaseOf(truck);
-            const meta = { id: truck.id, hd: isHeavyDuty(truck), plat: truck.plat, type: truck.type, owner: currentAccount ? currentAccount.company : 'Pemain',
+            const meta = { id: truck.id, hd: unitLaju(truck), plat: truck.plat, type: truck.type, owner: currentAccount ? currentAccount.company : 'Pemain',
                            depoNama: base.nama, dariNama: origin.nama, tujuanNama: target.nama, fase: 'berangkat', nomorSJ: d.nomorSJ };
             const metaBalik = { ...meta, fase: 'kembali', dariNama: target.nama, tujuanNama: base.nama };
             const fit = ownAnims === 1;
@@ -525,7 +540,7 @@
             ids.forEach(i => busyIds.add(i));
             depoConvoyBusyUi();
             ownAnims++;
-            const meta = { id: lead.id, fuelIds: convoy.map(t => t.id), hd: isHeavyDuty(lead), plat: lead.plat, type: 'BBM', owner: currentAccount ? currentAccount.company : 'Pemain',
+            const meta = { id: lead.id, fuelIds: convoy.map(t => t.id), hd: unitLaju(lead), plat: lead.plat, type: 'BBM', owner: currentAccount ? currentAccount.company : 'Pemain',
                            depoNama: origin.nama, dariNama: origin.nama, tujuanNama: target.nama, fase: 'berangkat', nomorSJ: d.nomorSJ };
             const metaBalik = { ...meta, fase: 'kembali', dariNama: target.nama, tujuanNama: origin.nama };
             const fit = ownAnims === 1;

@@ -42,7 +42,7 @@
             }
             if (!list.length) { c.innerHTML = kuota + info + '<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i>Tidak ada lokasi tersedia untuk pilihan ini.</div>'; return; }
             c.innerHTML = kuota + info + list.map(x => { const k = jenisKey(x); return `<div class="p-2.5 bg-gray-900 rounded-lg border border-gray-800 flex justify-between items-center gap-2">
-                <div class="min-w-0"><div class="text-[10px] text-purple-400 font-bold">${x.kode} <span class="${x.has_lpg ? 'text-amber-400' : 'text-gray-400'}">&middot; ${x.has_lpg ? 'SPBU + LPG' : 'SPBU tanpa LPG'}</span></div>
+                <div class="min-w-0"><div class="text-[10px] text-purple-400 font-bold">${x.kode} <span class="${x.has_lpg ? 'text-amber-400' : 'text-gray-400'}">&middot; ${x.jenis === 'SPPBE' ? 'SPPBE (LPG)' : x.has_lpg ? 'SPBU + LPG' : 'SPBU tanpa LPG'}</span></div>
                 <div class="font-bold text-gray-200 text-xs truncate">${esc(x.nama)}</div><div class="text-[10px] text-gray-400">${esc(x.region)} &middot; ${esc(x.provinsi || '')}</div>
                 <div class="text-[10px] text-amber-400">Biaya izin ${formatRupiah(MITRA_CFG.izin[k])} &middot; Iuran ${formatRupiah(MITRA_CFG.bulanan[k])}/bln</div></div>
                 <button onclick="approveMitra('${x.kode}')" class="shrink-0 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-[10px] font-bold shadow">Setujui</button></div>`; }).join('')
@@ -133,7 +133,7 @@
                 if (x.blocked) { badge = '<span class="text-red-400 font-bold">DIBLOKIR</span>'; extra = `<div class="text-[10px] text-red-300">Lisensi dicabut ${dShort(x.blockedAt)} &middot; operasional off</div>`; btn = `<button onclick="takeOverSpbu('${x.kode}')" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-[10px] font-bold">Ambil Alih &middot; ${formatRupiah(MITRA_CFG.ambil[jenisKey(x)])}</button>`; }
                 else if (m.telat) { const d = Math.floor((now - m.telatSejak) / DAY_MS); badge = `<span class="text-amber-400 font-bold">MENUNGGAK ${d}/${MITRA_CFG.graceDays} hari</span>`; extra = `<div class="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden mt-1"><div class="bg-red-500 h-full" style="width:${Math.min(100, d / MITRA_CFG.graceDays * 100)}%"></div></div>`; btn = `<button onclick="tagihMitra('${x.kode}')" class="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded text-[10px] font-bold">Tagih</button>`; }
                 else { badge = '<span class="text-emerald-400 font-bold">AKTIF</span>'; extra = `<div class="text-[10px] text-gray-500">Tagihan berikut ${dShort(m.due)} &middot; ${formatRupiah(m.bulanan)}</div>`; }
-                return `<div class="p-2.5 bg-gray-900 rounded-lg border ${x.blocked ? 'border-red-500/50' : 'border-gray-800'} flex justify-between items-center gap-2"><div class="min-w-0 flex-1"><div class="text-[10px]">${badge} <span class="text-gray-500">&middot; ${esc(m.nama)}${x.has_lpg ? ' &middot; +LPG' : ''}</span></div><div class="font-bold text-gray-200 text-xs truncate">${esc(x.nama)}</div><div class="text-[10px] text-gray-400">${esc(x.region)}</div>${extra}</div>${btn}</div>`;
+                return `<div class="p-2.5 bg-gray-900 rounded-lg border ${x.blocked ? 'border-red-500/50' : 'border-gray-800'} flex justify-between items-center gap-2"><div class="min-w-0 flex-1"><div class="text-[10px]">${badge} <span class="text-gray-500">&middot; ${esc(m.nama)}${x.jenis === 'SPPBE' ? ' &middot; SPPBE' : x.has_lpg ? ' &middot; +LPG' : ''}</span></div><div class="font-bold text-gray-200 text-xs truncate">${esc(x.nama)}</div><div class="text-[10px] text-gray-400">${esc(x.region)}</div>${extra}</div>${btn}</div>`;
             }).join('') : '<div class="text-xs text-gray-500 text-center py-3">Belum ada mitra. Setujui izin di atas.</div>';
         }
         setInterval(() => { if (currentAccount) tickMitra(); }, 3000);
@@ -182,6 +182,7 @@
                         <div class="min-w-0">
                             <span class="text-[10px] font-mono bg-blue-900/40 text-blue-400 px-1.5 py-0.5 rounded border border-blue-800">${esc(trk.id)}</span>
                             <h4 class="font-bold text-gray-200 text-xs inline-block ml-1.5">${esc(trk.name)}</h4>
+                            ${trk.limitedId ? `<div class="text-[10px] font-black uppercase tracking-wide text-yellow-300 mt-1"><i class="fa-solid fa-gem mr-1"></i>Limited Edition &middot; No. ${esc(trk.limitedSerial)}</div>` : ''}
                             ${trk.julukan ? `<div class="text-[11px] text-amber-300 font-semibold mt-1"><i class="fa-solid fa-signature mr-1 text-amber-400/70"></i>"${esc(trk.julukan)}"</div>` : ''}
                         </div>
                         <span class="shrink-0 font-mono font-bold text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">${esc(trk.plat)}</span>
@@ -262,6 +263,7 @@
             const t = companyFleet.find(x => x.id === truckId), inp = document.getElementById('julukan-' + truckId); if (!t || !inp) return;
             t.julukan = cleanJulukan(inp.value);
             addLog(t.julukan ? `JULUKAN: ${t.id} [${t.plat}] kini dijuluki "${t.julukan}".` : `JULUKAN: julukan ${t.id} [${t.plat}] dihapus.`, 'info');
+            if (typeof refreshTruckTips === 'function') refreshTruckTips(truckId);   // label julukan di peta ikut berubah
             populateTruckDropdowns(); renderFleetDashboard(); saveGame();
         }
 
@@ -400,7 +402,11 @@
         const AVATAR = ['bg-purple-600','bg-blue-600','bg-emerald-600','bg-amber-600','bg-rose-600','bg-cyan-600','bg-indigo-600'];
         const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
         const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
-        let recruitSort = 'cost';
+        // Papan Bursa Kerja: tiap peran maksimal 4 kandidat ACAK (reputasi rendah sampai tinggi) dengan tombol Tolak / Terima.
+        // Kandidat yang ditolak (atau diterima) meninggalkan slot kosong; 10 detik kemudian pelamar baru (rating acak) mengisinya.
+        const CANDIDATE_BOARD_SIZE = 4, CANDIDATE_RESPAWN_MS = 10000;
+        let candidatePending = { Supir: [], Kernet: [], Mekanik: [], Nahkoda: [], ABK: [] };   // waktu (ms) kapan pelamar baru datang, satu per slot kosong
+        let candidateTick = null;
         let confirmCid = null;
 
         function generateCandidate(role) {
@@ -420,10 +426,21 @@
                      age: 19 + exp + rnd(0, 9), kota: KOTA[rnd(0, KOTA.length - 1)], cost: hireCost(role, reputation) };
         }
 
-        function ensureCandidatePool(role, force = false) {
-            if (force) candidatePool[role] = [];
-            while (candidatePool[role].length < 500) candidatePool[role].push(generateCandidate(role));
+        // Pelamar baru yang waktunya sudah tiba masuk ke papan. Mengembalikan true kalau ada yang masuk.
+        function fillDueCandidates(role) {
+            const now = Date.now(), pool = candidatePool[role]; let changed = false;
+            candidatePending[role] = candidatePending[role].filter(t => {
+                if (t <= now && pool.length < CANDIDATE_BOARD_SIZE) { pool.push(generateCandidate(role)); changed = true; return false; }
+                return true;
+            });
+            return changed;
         }
+        // Papan awal: langsung 4 kandidat acak. Slot yang sedang menunggu pelamar baru tidak diisi duluan.
+        function ensureCandidatePool(role) {
+            fillDueCandidates(role);
+            while (candidatePool[role].length + candidatePending[role].length < CANDIDATE_BOARD_SIZE) candidatePool[role].push(generateCandidate(role));
+        }
+        function scheduleCandidate(role) { candidatePending[role].push(Date.now() + CANDIDATE_RESPAWN_MS); }
 
         // Hasil satu tugas: pelanggaran -> reputasi turun; sukses -> reputasi naik perlahan
         function applyTripResult(member) {
@@ -546,11 +563,27 @@
             document.getElementById('recruit-status').classList.add('hidden');
             document.getElementById('recruit-modal').classList.remove('hidden');
             renderCandidateList();
+            if (!candidateTick) candidateTick = setInterval(recruitTick, 1000);
         }
-        function closeRecruitModal() { document.getElementById('recruit-modal').classList.add('hidden'); }
+        function closeRecruitModal() {
+            document.getElementById('recruit-modal').classList.add('hidden');
+            if (candidateTick) { clearInterval(candidateTick); candidateTick = null; }
+        }
+        // Tiap detik: pelamar baru yang sudah tiba dimasukkan; hitung mundur di kartu kosong diperbarui tanpa merender ulang seluruh daftar.
+        function recruitTick() {
+            let arrivedHere = false;
+            Object.keys(candidatePending).forEach(r => { if (fillDueCandidates(r) && r === recruitRole) arrivedHere = true; });
+            if (arrivedHere) return renderCandidateList();
+            document.querySelectorAll('#candidate-list [data-ready]').forEach(el => { el.textContent = Math.max(1, Math.ceil((+el.dataset.ready - Date.now()) / 1000)); });
+        }
+        function rejectCandidate(cid) {
+            const pool = candidatePool[recruitRole], idx = pool.findIndex(c => c.cid === cid);
+            if (idx === -1) return;
+            pool.splice(idx, 1); scheduleCandidate(recruitRole);
+            if (confirmCid === cid) confirmCid = null;
+            renderCandidateList();
+        }
         function setRecruitRole(role) { recruitRole = role; confirmCid = null; renderCandidateList(); }
-        function setRecruitSort(k) { recruitSort = k; renderCandidateList(); }
-        function refreshCandidates() { confirmCid = null; ensureCandidatePool(recruitRole, true); renderCandidateList(); }
 
         function renderCandidateList() {
             document.getElementById('recruit-cash').innerText = formatRupiah(companyCash);
@@ -560,18 +593,10 @@
                 el.className = 'py-2 rounded-lg text-xs font-bold transition ' + (r === recruitRole ? 'bg-purple-600 text-white shadow' : 'bg-gray-800 text-gray-400 hover:bg-gray-700');
                 el.innerHTML = `<i class="fa-solid ${ROLE_META[r].icon} mr-1.5"></i>${r} <span class="opacity-70 font-normal">(${n} di tim)</span>`;
             });
-            document.getElementById('recruit-sorts').innerHTML = [['cost', 'Termurah'], ['rep', 'Reputasi Tertinggi'], ['exp', 'Paling Berpengalaman']].map(([k, l]) =>
-                `<button onclick="setRecruitSort('${k}')" class="px-2.5 py-1 rounded-full text-[10px] font-semibold border transition ${recruitSort === k ? 'bg-purple-600/20 text-purple-300 border-purple-500/40' : 'text-gray-400 border-gray-700 hover:border-gray-500'}">${l}</button>`).join('');
-
-            const sorter = { cost: (a, b) => a.cost - b.cost, rep: (a, b) => b.reputation - a.reputation, exp: (a, b) => b.exp - a.exp || b.reputation - a.reputation }[recruitSort];
-            const totalPool = candidatePool[recruitRole].length;
-            const list = [...candidatePool[recruitRole]].sort(sorter).slice(0, 10);
-            document.getElementById('recruit-sorts').insertAdjacentHTML('beforeend', `<span class="text-[10px] text-gray-500 ml-auto self-center">Tampil ${list.length} dari ${totalPool} kandidat</span>`);
+            fillDueCandidates(recruitRole);
+            const list = candidatePool[recruitRole], pending = candidatePending[recruitRole];
+            document.getElementById('recruit-sorts').innerHTML = `<span class="text-[10px] text-gray-500"><i class="fa-solid fa-shuffle mr-1"></i>${list.length} dari ${CANDIDATE_BOARD_SIZE} kandidat &middot; rating acak &middot; yang ditolak digantikan pelamar baru &plusmn;${CANDIDATE_RESPAWN_MS / 1000} detik</span>`;
             const container = document.getElementById('candidate-list');
-            if (!list.length) {
-                container.innerHTML = `<div class="md:col-span-2 text-center text-xs text-gray-400 py-10">Semua kandidat sudah direkrut.<br><button onclick="refreshCandidates()" class="mt-2 text-purple-400 font-semibold hover:text-purple-300"><i class="fa-solid fa-rotate mr-1"></i>Cari kandidat baru</button></div>`;
-                return;
-            }
             container.innerHTML = list.map(c => {
                 const info = repInfo(c.reputation), risk = riskLabel(c.reputation);
                 const chance = Math.round(violationChance(c.reputation) * 100);
@@ -581,8 +606,8 @@
                 const bars = c.skills.map((v, i) => `<div class="flex items-center gap-2 text-[10px]"><span class="w-16 text-gray-400 shrink-0">${SKILLS[c.role][i]}</span><div class="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden"><div class="h-full ${repInfo(v).bar}" style="width:${v}%"></div></div><span class="w-6 text-right font-mono text-gray-300">${v}</span></div>`).join('');
                 const tags = c.tags.map(t => `<span class="text-[9px] text-gray-300 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5">${t}</span>`).join('');
                 const action = c.cid === confirmCid && canAfford
-                    ? `<div class="flex gap-1"><button onclick="cancelHire()" class="px-2 py-1 rounded text-[10px] font-bold bg-gray-800 hover:bg-gray-700 text-gray-300">Batal</button><button onclick="hireCandidate('${c.cid}')" class="px-2 py-1 rounded text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white">Ya, Rekrut</button></div>`
-                    : `<button onclick="askHire('${c.cid}')" ${canAfford ? '' : 'disabled'} class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition ${canAfford ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}">${canAfford ? 'Rekrut' : 'Kas Kurang'}</button>`;
+                    ? `<div class="flex gap-1"><button onclick="cancelHire()" class="px-2 py-1 rounded text-[10px] font-bold bg-gray-800 hover:bg-gray-700 text-gray-300">Batal</button><button onclick="hireCandidate('${c.cid}')" class="px-2 py-1 rounded text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white">Ya, Terima</button></div>`
+                    : `<div class="flex gap-1.5"><button onclick="rejectCandidate('${c.cid}')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition border border-red-500/40 text-red-400 hover:bg-red-500/10">Tolak</button><button onclick="askHire('${c.cid}')" ${canAfford ? '' : 'disabled'} class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition ${canAfford ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}">${canAfford ? 'Terima' : 'Kas Kurang'}</button></div>`;
                 return `<div class="bg-gray-950 border ${c.cid === confirmCid ? 'border-purple-500' : 'border-gray-800'} rounded-xl p-3 flex flex-col gap-2.5">
                     <div class="flex items-center gap-2.5">
                         <div class="w-10 h-10 rounded-full ${av} flex items-center justify-center font-bold text-sm shrink-0">${c.name.split(' ').map(w => w[0]).join('')}</div>
@@ -605,7 +630,10 @@
                         ${action}
                     </div>
                 </div>`;
-            }).join('');
+            }).join('') + pending.map(t => `<div class="bg-gray-950/40 border border-dashed border-gray-800 rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 min-h-[9rem] text-center">
+                    <i class="fa-solid fa-user-clock text-gray-600 text-xl"></i>
+                    <div class="text-[11px] text-gray-400">Pelamar baru datang dalam <b class="font-mono text-purple-300" data-ready="${t}">${Math.max(1, Math.ceil((t - Date.now()) / 1000))}</b> dtk</div>
+                </div>`).join('');
         }
 
         function hireCandidate(cid) {
@@ -622,6 +650,7 @@
             companyCash -= cand.cost;
             totalExpense += cand.cost;
             pool.splice(idx, 1);
+            scheduleCandidate(recruitRole);   // slot kosong diisi pelamar baru (acak) beberapa detik lagi
 
             crewIdCounter++;
             companyCrew.push({
@@ -727,7 +756,7 @@
         function planDispatchAuto(kind) {
             const cfg = DISPATCH_AUTO[kind], unit = cfg.unit;
             const openOrders = orders.filter(o => cfg.fuelOf(o) && isOrderDispatchable(o)
-                && (() => { const sp = loadedSpbuList.find(x => x.kode === o.kode); return sp && isOp(sp) && (kind !== 'LPG' || sp.has_lpg); })());
+                && (() => { const sp = loadedSpbuList.find(x => x.kode === o.kode); return sp && isOp(sp) && (kind === 'LPG' ? sp.has_lpg : sp.jenis !== 'SPPBE'); })());
             if (dispatchFocus[kind] && !openOrders.some(o => o.id === dispatchFocus[kind])) dispatchFocus[kind] = null;
             if (!openOrders.length) return { ok: false, reason: `Belum ada pesanan ${kind} terbuka dari SPBU.`, tip: 'Sistem akan otomatis menyusun pengiriman begitu ada SPBU yang memesan.' };
 
@@ -897,7 +926,7 @@
             openSuratJalanModal({ mode: 'BBM', tujuanNama: spbu.nama, tujuanKode: spbu.kode, jenisMuatan: fuelType, volumeText: `${truck.cap} KL`, truck, driver, kernet,
                 execute: (no) => {
                     settleTruckDelivery(no, d);
-                    // Setelah truk berangkat, kembali ke daftar Pesanan SPBU (pesanan yang baru dikirim pindah ke "Dalam perjalanan").
+                    // Setelah truk berangkat, kembali ke daftar Pesanan SPBU (pesanan yang baru dikirim pindah ke daftar Proses di Riwayat).
                     dispatchFocus.BBM = null;
                     switchTab('tab-orders');
                 } });

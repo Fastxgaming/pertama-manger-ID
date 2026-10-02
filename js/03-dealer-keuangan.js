@@ -70,9 +70,23 @@
             { list: 'dealer-lpg-agent-list', type: 'LPG', name: 'Truk Tabung LPG 5 Ton', short: 'Truk Tabung Campuran (5 Ton)', cap: 5, price: 460000000, engine: 'Diesel 4 Silinder 110 PS', axle: '2 Sumbu (6 Roda)', capText: '5 Ton Tabung (3 Kg / 12 Kg)' }
         ];
 
+        // ===== UNIT LIMITED EDITION (DEV) =====
+        // Tidak masuk DEALER_CATALOG: tampil di kategori "Limited" hanya kalau owner mengaktifkannya (dokumen server limited_models/{id}.active),
+        // dan bisa juga diberikan langsung oleh owner lewat Panel Admin. Kuota & nomor seri dijaga server (js/14-limited-edition.js).
+        // perk: pakaiSolar = pengali konsumsi solar (0.75 = hemat 25%), ausBan = pengali keausan ban, laju = pengali kecepatan, kirFree = perpanjang KIR gratis.
+        const LIMITED_CATALOG = [
+            { id: 'ltd-trailer-40', type: 'BBM', name: 'Tangki Trailer 40 KL Dev Edition (BBM)', short: 'Trailer 40 KL Dev Edition', cap: 40, price: 3600000000, defaultQuota: 50,
+              engine: 'Kepala Trailer Diesel 6 Silinder 450 PS Euro 5 (solar hemat 25%, ban awet 2x, laju +10%, KIR gratis)', axle: 'Semi-Trailer (18 Roda)', capText: '40.000 Liter · 7 kompartemen',
+              perk: { pakaiSolar: 0.75, ausBan: 0.5, laju: 1.10, kirFree: true } },
+            { id: 'ltd-lpg-25', type: 'LPG', name: 'Skid Tank LPG 25 Ton Dev Edition', short: 'Skid Tank 25 Ton Dev Edition', cap: 25, price: 3800000000, defaultQuota: 50,
+              engine: 'Kepala Trailer Diesel 6 Silinder 450 PS Euro 5 (solar hemat 25%, ban awet 2x, laju +10%, KIR gratis)', axle: 'Semi-Trailer (18 Roda)', capText: '25 Ton LPG Curah (Pressure Vessel)',
+              perk: { pakaiSolar: 0.75, ausBan: 0.5, laju: 1.10, kirFree: true } }
+        ];
+        const limitedModel = id => LIMITED_CATALOG.find(m => m.id === id) || null;
+
         // Biaya legalitas saat beli: uji KIR baru + STNK/BBN + pelat nomor (TNKB)
         const regFee = u => { const kir = u.kelas === 'kapal' ? Math.round(u.price * 0.005 / 100000) * 100000 : Math.round((1200000 + (u.kelas === 'depo' ? depoKlEq(u) : u.cap) * 150000) / 100000) * 100000, stnk = Math.round(u.price * 0.03 / 100000) * 100000, plat = 500000; return { kir, stnk, plat, total: kir + stnk + plat }; };
-        const kirRenewCost = t => Math.round(regFee({ cap: t.cap, price: t.price || 500e6, kelas: t.kelas }).kir * 0.6 / 50000) * 50000;
+        const kirRenewCost = t => (typeof unitPerk === 'function' && (unitPerk(t) || {}).kirFree) ? 0 : Math.round(regFee({ cap: t.cap, price: t.price || 500e6, kelas: t.kelas }).kir * 0.6 / 50000) * 50000;
         const stnkRenewCost = t => Math.round((t.price || 500e6) * 0.02 / 100000) * 100000;
         const platRenewCost = t => 500000;
         const STNK_PERIOD = 5 * 365 * 86400000; // STNK berlaku 5 tahun
@@ -136,6 +150,7 @@
         const perluBalikNama = t => !!currentAccount && !!t.pemilikUid && t.pemilikUid !== currentAccount.id;
         const balikNamaCost = t => Math.round(estimateTruckValue(t) * BBNKB_RATE / 100000) * 100000 + BALIK_NAMA_ADM;
         function tolakBelumBalikNama(t) {
+            if (t && (t.limited || t.limitedId)) { showModal('Unit Limited Edition', `${t.id} [${t.plat}] adalah unit Limited Edition: tidak bisa dijual ke Bursa P2P maupun Jual Instan.`, 'fa-gem', 'amber'); return true; }
             if (!perluBalikNama(t)) return false;
             showModal('Belum Balik Nama', `${t.id} [${t.plat}] masih atas nama ${t.pemilik || '-'}. Lakukan Balik Nama lewat tombol Surat di tab Armada (biaya ${formatRupiah(balikNamaCost(t))}) sebelum unit ini bisa dijual ke Bursa P2P atau Jual Instan.`, 'fa-file-signature', 'amber');
             return true;
@@ -182,6 +197,7 @@
                 `;
                 document.getElementById(u.list).appendChild(row);
             });
+            if (typeof renderLimitedDealer === 'function') renderLimitedDealer();
         }
 
         function buyFromCatalog(idx) {
@@ -296,7 +312,7 @@
             const q = bulkQuote(pp);
             document.getElementById('dealer-qty').innerText = pp.qty;
             document.getElementById('dealer-qty-minus').disabled = pp.qty <= 1;
-            document.getElementById('dealer-qty-plus').disabled = pp.qty >= bulkMax(pp.kelas);
+            document.getElementById('dealer-qty-plus').disabled = pp.qty >= (pp.limitedId ? 1 : bulkMax(pp.kelas));
             document.getElementById('dealer-bulk-info').innerHTML =
                 `<div class="flex justify-between"><span class="text-gray-400">Harga unit x ${pp.qty}</span><span class="text-gray-200 font-mono">${formatRupiah(q.gross)}</span></div>` +
                 (q.disc ? `<div class="flex justify-between"><span class="text-emerald-400">Diskon borongan ${q.disc}%</span><span class="text-emerald-400 font-mono">-${formatRupiah(q.discAmt)}</span></div>` : '') +
@@ -307,7 +323,7 @@
         }
         function changeDealerQty(d) {
             const pp = pendingTruckPurchase; if (!pp) return;
-            pp.qty = Math.min(bulkMax(pp.kelas), Math.max(1, pp.qty + d));
+            pp.qty = Math.min(pp.limitedId ? 1 : bulkMax(pp.kelas), Math.max(1, pp.qty + d));
             renderDealerQty();
         }
 
@@ -319,6 +335,7 @@
         function executeTruckPurchase() {
             if (pphBlokir()) return;
             if (!pendingTruckPurchase) return;
+            if (pendingTruckPurchase.limitedId) return executeLimitedPurchase();   // js/14-limited-edition.js (server menjaga kuota & nomor seri)
 
             const { name, cap, type, price, kelas, qty } = pendingTruckPurchase;
             const fee = pendingTruckPurchase.fee;
@@ -520,6 +537,7 @@
                 <div>&bull; Fasilitas: <b>Pasal 31E ayat (1)</b> (UU No. 36 Tahun 2008) = fasilitas tarif lebih rendah atas penghasilan kena pajak dari bagian peredaran bruto sampai Rp 4,8 miliar, bagi peredaran bruto sampai Rp 50 miliar.</div>
                 <div>&bull; <b>Pajak minimum (aturan game):</b> walau perusahaan rugi, PPh terutang tidak kurang dari ${(PPH_MIN_TARIF * 100).toFixed(1).replace('.', ',')}% peredaran bruto kumulatif.</div>
                 <div>&bull; <b>Tagihan 2 mingguan, pemotongan otomatis &amp; tunggakan (aturan game):</b> PPh ditagih tiap 2 minggu game, jatuh tempo ${PPH_JATUH_TEMPO_HARI} hari game. Lewat tempo, kas dipotong otomatis sebesar pokok + denda ${Math.round(PPH_DENDA_AWAL * 100)}%. Kekurangan kas menjadi tunggakan: kas masuk dipotong sampai lunas dan pembelian, ekspansi, serta pengiriman diblokir.</div>
+                <div>&bull; <b>Pajak Pengolahan (aturan game):</b> konversi BBL&rarr;BBM dikenai ${Math.round(ECO.pajakOlahBbm * 100)}% dan LPG Curah&rarr;Tabung ${Math.round(ECO.pajakOlahLpg * 100)}% dari nilai jual produk. Pajak ini dicatat sebagai pengeluaran, jadi ikut mengurangi laba kena PPh (bukan dipajaki dua kali).</div>
                 <div>&bull; Pelaporan: <b>UU No. 6 Tahun 1983</b> tentang KUP (diubah UU No. 7 Tahun 2021) <b>Pasal 3 ayat (3) huruf b</b>: SPT Tahunan badan paling lambat 4 bulan setelah tahun pajak berakhir.</div>
                 <div class="text-gray-500">Simulasi: laba = pendapatan &minus; beban, dihitung kumulatif sejak akun dibuat; tagihan 2 mingguan = PPh kumulatif dikurangi yang sudah ditagih. Bukan konsultasi pajak.</div>`;
         }
@@ -726,7 +744,8 @@
                 const pv = region.provinsi || 'Jawa Timur';
 
                 region.list_spbu.forEach((item, sIndex) => {
-                    const isLpgAvailable = ((rIndex + sIndex) % 2 === 0);
+                    // Data baru punya field jenis: 'SPBU' (BBM saja), 'SPBU+LPG' (BBM + LPG), 'SPPBE' (outlet LPG saja). Wilayah lama (tanpa jenis) tetap selang-seling.
+                    const isLpgAvailable = item.jenis ? item.jenis !== 'SPBU' : ((rIndex + sIndex) % 2 === 0);
                     const isStartApproved = sIndex < START_APPROVED_PER_KOTA;
                     if (sIndex === 0) item = { ...item, tipe: 'COCO' }; else item = { ...item, tipe: 'DODO' };
 
@@ -739,6 +758,8 @@
                         lon: item.lon,
                         tipe: item.tipe,
                         has_lpg: isLpgAvailable,
+                        jenis: item.jenis || (isLpgAvailable ? 'SPBU+LPG' : 'SPBU'),
+                        kecamatan: item.kecamatan || '',
                         is_approved: isStartApproved
                     };
                     // 2 slot DODO pertama yang di-auto-approve butuh objek mitra langsung (sama seperti

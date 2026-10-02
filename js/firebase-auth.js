@@ -119,10 +119,68 @@
             const id = 'FILL-' + Date.now() + '-' + uid.slice(0, 6), b = writeBatch(db);
             b.set(doc(db, 'fills', id), { uid, type: 'bbl_cabang', claimed: false, created: serverTimestamp(), by: adminUid }); await b.commit(); return id;
         },
+        // Isi bahan mentah (BBL mentah / LPG Curah) di kilang/depo MANA PUN milik pemain (khusus owner).
+        // bahan: 'bbl' | 'lpg_curah'; mode: 'add' (tambah sejumlah amount) | 'full' (isi penuh, amount = 0).
+        // Perintah dicatat di 'fills', lalu diterapkan otomatis oleh klien pemain saat online (dibatasi kapasitas tangki).
+        adminFillMentah: async (adminUid, uid, kilangId, bahan, mode, amount) => {
+            const id = 'FILL-' + Date.now() + '-' + uid.slice(0, 6), b = writeBatch(db);
+            b.set(doc(db, 'fills', id), { uid, type: 'bahan_mentah', kilangId, bahan, mode, amount: mode === 'full' ? 0 : amount, claimed: false, created: serverTimestamp(), by: adminUid }); await b.commit(); return id;
+        },
         listenFills: (uid, cb) => onSnapshot(query(collection(db, 'fills'), where('uid', '==', uid), where('claimed', '==', false)),
             snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))), e => console.warn('Listener fills:', e)),
         markFillClaimed: id => updateDoc(doc(db, 'fills', id), { claimed: true, claimedAt: serverTimestamp() }),
+        // ===== OWNER DEVELOPER + LIMITED EDITION (v2.0) =====
+        // Owner = dokumen admins/{uid} dengan field role == 'owner' (diisi manual lewat Console). Rules-lah yang menjaga; ini hanya untuk tampilan.
+        isOwnerDev: uid => getDoc(doc(db, 'admins', uid)).then(x => x.exists() && (x.data().role || '') === 'owner').catch(() => false),
+        // Catatan audit (append-only). Best-effort: gagal tulis tidak membatalkan aksinya.
+        audit: (adminUid, action, target, detail) => setDoc(doc(collection(db, 'audit')), { by: adminUid, action, target: target || '', detail: detail || '', created: serverTimestamp() }).catch(e => console.warn('Audit gagal:', e)),
+        recentAudit: () => getDocs(query(collection(db, 'audit'), orderBy('created', 'desc'), limit(25))).then(sn => sn.docs.map(d => ({ id: d.id, ...d.data() }))),
+        // Katalog model limited: { [modelId]: { active, quota, granted } }, dibaca semua pemain (1 listener, dokumen kecil).
+        listenLimitedModels: cb => onSnapshot(collection(db, 'limited_models'), snap => { const m = {}; snap.forEach(d => { m[d.id] = d.data(); }); cb(m); }, e => console.warn('Listener limited_models:', e)),
+        ownerSetLimitedModel: async (adminUid, modelId, active, quota) => {
+            const ref = doc(db, 'limited_models', modelId), cur = await getDoc(ref);
+            await setDoc(ref, { active: !!active, quota: Math.max(0, Math.floor(quota) || 0), granted: cur.exists() ? (cur.data().granted || 0) : 0 });
+            await window.fb.audit(adminUid, 'limited_model', modelId, 'aktif=' + !!active + ' kuota=' + quota);
+        },
+        // Owner memberi unit ke pemain: nomor seri + kuota dijaga lewat transaksi (granted+1). Unit baru diterapkan klien pemain saat online.
+        ownerGrantLimited: (adminUid, uid, modelId) => runTransaction(db, async tx => {
+            const mref = doc(db, 'limited_models', modelId), m = await tx.get(mref);
+            if (!m.exists()) throw new Error('MODEL_BELUM_DIATUR');
+            const g = (m.data().granted || 0) + 1;
+            if (g > (m.data().quota || 0)) throw new Error('KUOTA_HABIS');
+            const id = modelId + '_' + g;
+            tx.update(mref, { granted: g });
+            tx.set(doc(db, 'limited_units', id), { uid, model: modelId, serial: g, src: 'owner', applied: false, revoked: false, created: serverTimestamp(), by: adminUid });
+            tx.set(doc(collection(db, 'audit')), { by: adminUid, action: 'limited_grant', target: uid, detail: id, created: serverTimestamp() });
+            return { id, serial: g };
+        }),
+        ownerRevokeLimited: async (adminUid, id) => {
+            await updateDoc(doc(db, 'limited_units', id), { revoked: true, revokedAt: serverTimestamp(), revokedBy: adminUid });
+            await window.fb.audit(adminUid, 'limited_revoke', id, '');
+        },
+        recentLimitedUnits: () => getDocs(query(collection(db, 'limited_units'), orderBy('created', 'desc'), limit(15))).then(sn => sn.docs.map(d => ({ id: d.id, ...d.data() }))),
+        // Pemain membeli di dealer: transaksi atomik (granted+1 + dokumen unit). Dibatasi Rules: model aktif, kuota cukup, serial = granted+1.
+        buyLimited: (uid, modelId) => runTransaction(db, async tx => {
+            const mref = doc(db, 'limited_models', modelId), m = await tx.get(mref);
+            if (!m.exists() || !m.data().active) throw new Error('TIDAK_AKTIF');
+            const g = (m.data().granted || 0) + 1;
+            if (g > (m.data().quota || 0)) throw new Error('KUOTA_HABIS');
+            const id = modelId + '_' + g;
+            tx.update(mref, { granted: g });
+            tx.set(doc(db, 'limited_units', id), { uid, model: modelId, serial: g, src: 'dealer', applied: true, revoked: false, created: serverTimestamp() });
+            return { id, serial: g };
+        }),
+        // Unit limited milik pemain (semua, termasuk yang sudah diterapkan) - dipakai untuk menerapkan pemberian & memvalidasi isi save.
+        listenMyLimited: (uid, cb) => onSnapshot(query(collection(db, 'limited_units'), where('uid', '==', uid)), snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() })), snap.metadata.fromCache), e => console.warn('Listener limited_units:', e)),
+        markLimitedApplied: id => updateDoc(doc(db, 'limited_units', id), { applied: true, appliedAt: serverTimestamp() }),
         markClaimed: id => updateDoc(doc(db, 'topups', id), { claimed: true, claimedAt: serverTimestamp() }),
+        // ===== SAKLAR DARURAT (config/flags): satu dokumen { maintenance, bursaOff, topupOff, message, by, updated } =====
+        // Dibaca semua pemain (real-time); hanya owner yang boleh menulis (Rules). Merge: tiap saklar bisa diubah sendiri-sendiri.
+        listenFlags: cb => onSnapshot(doc(db, 'config', 'flags'), snap => cb(snap.exists() ? snap.data() : {}), e => console.warn('Listener flags:', e)),
+        ownerSetFlags: async (adminUid, patch, label) => {
+            await setDoc(doc(db, 'config', 'flags'), { ...patch, by: adminUid, updated: serverTimestamp() }, { merge: true });
+            await window.fb.audit(adminUid, 'flags', label || '', JSON.stringify(patch));
+        },
         // ===== BROADCAST: notifikasi admin ke semua pemain, tersimpan permanen di Firestore =====
         // Kenapa bukan push notification (FCM)? Proyek ini belum menyiapkan service worker/VAPID key.
         // Solusinya: setiap dokumen broadcast disimpan permanen, lalu tiap klien mengambil broadcast yang
@@ -161,13 +219,24 @@
             sn => cb(sn.docs.map(d => ({ id: d.id, ...d.data() }))), e => console.warn('Listener bursa_trades:', e)),
         markBursaSaleClaimed: id => updateDoc(doc(db, 'bursa_trades', id), { claimed: true, claimedAt: serverTimestamp() }),
         // ===== Tender Blok Nasional: rebutan hak lelang antar pemain nyata (siapa lebih dulu, atomik) =====
-        // Dokumen blok_claims/{kunciBlok} hanya bisa DIBUAT sekali (tidak ada update), jadi transaksi ini menjamin satu pemenang rebutan.
-        claimBlok: (key, uid, company) => runTransaction(db, async tx => {
-            const ref = doc(db, 'blok_claims', key), snap = await tx.get(ref);
-            if (snap.exists()) return { ok: false, mine: snap.data().uid === uid, by: snap.data().company || 'pemain lain' };
-            tx.set(ref, { uid, company: String(company || '').slice(0, 40), created: serverTimestamp() });
-            return { ok: true };
-        }),
+        // blok_claims/{kunciBlok} hanya bisa DIBUAT sekali (tidak ada update), jadi transaksi ini menjamin satu pemenang rebutan.
+        // Jatah: tiap pemain maksimal 1 klaim per periode (blok_claim_user/{uid}_{periode}, dibuat dalam transaksi yang sama; rules mewajibkannya).
+        // Mengembalikan juga 'at' = jam SERVER saat klaim (ms); klien memakainya untuk mengundi ulang hasil blok supaya tidak bisa dihitung dari seed.
+        claimBlok: async (key, uid, company) => {
+            const epoch = String(key).slice(1).split('_')[0];
+            const ref = doc(db, 'blok_claims', key), qref = doc(db, 'blok_claim_user', uid + '_' + epoch);
+            const r = await runTransaction(db, async tx => {
+                const snap = await tx.get(ref);
+                if (snap.exists()) return { ok: false, mine: snap.data().uid === uid, by: snap.data().company || 'pemain lain' };
+                const q = await tx.get(qref);
+                if (q.exists()) return { ok: false, limit: true };
+                tx.set(qref, { uid, created: serverTimestamp() });
+                tx.set(ref, { uid, company: String(company || '').slice(0, 40), created: serverTimestamp() });
+                return { ok: true };
+            });
+            if (r.ok) { try { const c = (await getDoc(ref)).data().created; r.at = c && c.toMillis ? c.toMillis() : 0; } catch (e) { r.at = 0; } }
+            return r;
+        },
         listenBlokClaims: (cb, onErr) => onSnapshot(query(collection(db, 'blok_claims'), orderBy('created', 'desc'), limit(60)),
             sn => cb(sn.docs.map(d => ({ key: d.id, ...d.data() }))), e => { console.warn('Listener blok_claims:', e); if (onErr) onErr(e); }),
         resetPassword: email => sendPasswordResetEmail(auth, email),
@@ -179,6 +248,7 @@
             // Iklan Bursa yang masih terbuka ikut dibatalkan (kalau dibiarkan, pembeli bisa "membeli" dari penjual yang sudah tidak ada).
             await step('iklan bursa', async () => { const sn = await getDocs(query(collection(db, 'bursa'), where('sellerUid', '==', uid), where('status', '==', 'open'))); await Promise.all(sn.docs.map(d => deleteDoc(d.ref))); });
             await step('klaim blok', async () => { const sn = await getDocs(query(collection(db, 'blok_claims'), where('uid', '==', uid))); await Promise.all(sn.docs.map(d => deleteDoc(d.ref))); });
+            await step('jatah klaim blok', async () => { const sn = await getDocs(query(collection(db, 'blok_claim_user'), where('uid', '==', uid))); await Promise.all(sn.docs.map(d => deleteDoc(d.ref))); });
             await step('save cloud', () => deleteDoc(doc(db, 'saves', uid)));
             await step('leaderboard', () => deleteDoc(doc(db, 'leaderboard', uid)));
             if (kode) await step('kode perusahaan', () => deleteDoc(doc(db, 'companyCodes', kode)));   // kode dibebaskan lagi

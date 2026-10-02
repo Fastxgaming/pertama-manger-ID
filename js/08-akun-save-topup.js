@@ -188,6 +188,8 @@
                 startVerifiedListener();
                 startBursaSalesListener();
                 startBanListener();
+                if (typeof startLimitedListeners === 'function') startLimitedListeners();
+                if (typeof startFlagsListener === 'function') startFlagsListener();
                 checkAdmin();
                 checkNewBroadcasts();
                 map.invalidateSize();
@@ -203,11 +205,16 @@
             else revealGame();
         }
 
+        // Tutorial v2 (spotlight, js/13-tutorial.js). Pemain baru langsung masuk Bab 1. Pemain lama yang sudah pernah melihat
+        // tutorial versi lama tidak dipaksa: cukup diberi tahu bahwa tutorial baru ada di tombol Tutorial.
         function maybeShowTutorial(isNew) {
             if (!currentAccount) return;
-            if (!store.get('pml_tutorial_' + currentAccount.id, false)) {
-                store.set('pml_tutorial_' + currentAccount.id, true);
-                setTimeout(() => openTutorial(isNew), 400);
+            const key = 'pml_tut2_' + currentAccount.id;
+            if (!store.get(key, null)) {
+                const sawOld = store.get('pml_tutorial_' + currentAccount.id, false);
+                store.set(key, { seen: true, done: [] });
+                if (!sawOld) setTimeout(() => openTutorial(true), 400);
+                else if (typeof notify === 'function') setTimeout(() => notify('Tutorial baru tersedia: tekan tombol Tutorial di atas.', 'info'), 1200);
             } else if (isNew) {
                 showModal(`Selamat Datang, ${currentAccount.owner}!`, `${currentAccount.company} resmi berdiri dengan modal ${formatRupiah(companyCash)}. Beli armada, rekrut kru, dan naiki peringkat di Leaderboard.`, 'fa-building-circle-check', 'blue');
             }
@@ -444,7 +451,7 @@
             { id: 'apass_juragan_28', pass: 'juragan', pdays: 28, label: 'Pass Juragan 28 Hari', price: 0, cash: 0, days: 0 }
         ];
         // Pass yang dijual ke pemain (muncul di menu Top Up). Hapus tier dari daftar ini untuk menyembunyikannya; admin tetap bisa memberikannya.
-        const PASS_LIVE = ['dasar', 'plus', 'juragan'];
+        const PASS_LIVE = ['dasar'];
         const ADMIN_CASH_MAX = 10e12; // batas atas nominal khusus admin: 10 Triliun
         let appliedTopups = [], selTopup = null, topupBusy = false, topupUnsub = null, topupChain = Promise.resolve();
         let banUnsub = null;

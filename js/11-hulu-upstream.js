@@ -24,7 +24,7 @@
             bravo: { nama: 'Anjungan Madura Bravo', berth: 'AN_bravo', fuel: 'oil', unit: 'Bbl', jenis: 'minyak mentah', shipType: 'BBM', icon: 'fa-oil-well', tone: 'amber',
                      lat: -7.47, lon: 114.10, buildCost: 88e9, buildHours: 18, rate: 3400000, cap: 10000000, opexWeek: 17e9, minLoad: 500, hpp: 190000 },
             gamma: { nama: 'Anjungan Gas Madura Gamma', berth: 'AN_gamma', fuel: 'gas', unit: 'Ton', jenis: 'gas bumi (LPG Curah)', shipType: 'LPG', icon: 'fa-fire-flame-simple', tone: 'orange',
-                     lat: -7.34, lon: 113.96, buildCost: 36e9, buildHours: 12, rate: 2500000, cap: 10000000, opexWeek: 4.8e9, minLoad: 50, hpp: 1450000 }
+                     lat: -7.34, lon: 113.96, buildCost: 14.4e9, buildHours: 12, rate: 1000000, cap: 3500000, opexWeek: 1.92e9, minLoad: 50, hpp: 1450000 }   // tangki 3,5 juta Ton = 5x tangki LPG Curah Tuban (700 rb). Produksi diset ±3,5 hari penuh; biaya bangun & opex ikut skala 0,4x (produksi 2,5 juta -> 1 juta/hari) supaya biaya per Ton tetap seimbang
         };
         const HULU_KEYS = Object.keys(HULU_SITES);
         // HPP (harga pokok produksi) per Bbl/Ton: dibayar tiap kali hasil anjungan MASUK ke kilang/depo tujuan (lewat pipa atau kapal),

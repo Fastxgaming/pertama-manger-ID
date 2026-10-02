@@ -25,6 +25,7 @@
                 2: { label: 'Blok Menengah',  bid: [600e9, 1.2e12],  rate: [3.8e6, 4.8e6], dev: [120e9, 180e9], hours: 20, hppF: 0.38, p: 0.40 },
                 3: { label: 'Blok Raksasa',   bid: [1.5e12, 3e12],   rate: [5.2e6, 6.5e6], dev: [220e9, 320e9], hours: 24, hppF: 0.30, p: 0.30 }
             },
+            gasScale: 0.4,                                // skala produksi/biaya blok gas (sama dengan Anjungan Gamma: 2,5 juta -> 1 juta Ton/hari)
             opexPer25: { oil: 9e9, gas: 4.8e9 }          // opex/minggu untuk produksi 2,5 juta/hari (acuan Alpha & Gamma), dikali 1,1 untuk blok baru
         };
         // Perairan tempat blok muncul. node = titik lajur laut terdekat (SEA_NODES, 07a-rute-laut.js) tempat dermaga blok disambungkan.
@@ -40,8 +41,8 @@
             { n: 'Selat Makassar Tengah', node: 'MS2', lat: -2.60, lon: 118.05 },
             { n: 'Barito Lepas Pantai',   node: 'BJ1', lat: -4.90, lon: 114.90 }
         ];
-        // Pesaing AI. Lelang = bandingkan penawaran Anda dengan penawaran tertinggi pesaing (diturunkan dari b.auRoll, jadi tidak bisa diulang lewat reload).
-        // Peluang menang tetap 60% (standar, x1,0) dan 90% (agresif, x1,3). Gaya hanya untuk tampilan.
+        // Pesaing AI. Lelang = 8 putaran penawaran bertahap melawan pesaing (diturunkan dari b.auRoll, jadi tidak bisa diulang lewat reload).
+        // Gaya tiap pesaing (agresif, hati-hati, oportunis, konservatif) menentukan cara mereka menawar di mesin lelang bertahap (TENDER_STYLE).
         const TENDER_RIVALS = [
             { n: 'Nusantara Energi Lepas Pantai', style: 'agresif' }, { n: 'Samudra Petroleum', style: 'hati-hati' },
             { n: 'Garuda Eksplorasi', style: 'oportunis' },           { n: 'Borneo Offshore Partners', style: 'konservatif' },
@@ -76,10 +77,12 @@
         function tenderDev(tier, fuel, rate, rr) {
             rr = rr || tRnd;
             const T = TENDER.tiers[tier];
+            // Blok GAS ikut skala anjungan Gamma: produksi, biaya bangun, dan opex 0,4x; tangki ±3,5 hari produksi (minyak tetap ±4 hari).
+            const gs = fuel === 'gas' ? TENDER.gasScale : 1, rt = tRound(rate * gs, 1e5);
             return {
-                rate, cap: tRound(rate * 4, 1e5),   // tangki = ±4 hari produksi, sama seperti anjungan lama
-                buildCost: tRound(rr(T.dev[0], T.dev[1]), 1e9), buildHours: T.hours,
-                opexWeek: tRound(rate / 2.5e6 * TENDER.opexPer25[fuel] * 1.1, 1e8),
+                rate: rt, cap: tRound(rt * (fuel === 'gas' ? 3.5 : 4), 1e5),   // tangki = ±4 hari produksi (gas ±3,5 hari)
+                buildCost: tRound(rr(T.dev[0], T.dev[1]) * gs, 1e9), buildHours: T.hours,
+                opexWeek: tRound(rt / 2.5e6 * TENDER.opexPer25[fuel] * 1.1, 1e8),
                 hpp: tRound(TENDER.base[fuel] * T.hppF * rr(0.94, 1.06), fuel === 'oil' ? 500 : 5000)
             };
         }
@@ -103,13 +106,67 @@
             bk.list.push(b);
             return b;
         }
-        // Pesaing AI untuk blok ini (murni fungsi dari auRoll): penawaran tertinggi pesaing (kelipatan nilai lelang) + daftar pesaing yang tertarik.
-        function tenderRivalsOf(b) {
-            const u = b.auRoll, f = k => (u * k) % 1;
+        // ---------- Mesin lelang bertahap (v96) ----------
+        // 8 putaran (1 putaran = 1 jam game). Pemain memberi: penawaran awal, batas maksimum (harga cadangan: tidak akan menawar di atas ini)
+        // dan kenaikan per putaran. Tiap kali ditawar lebih tinggi, sistem menaikkan penawaran otomatis (proxy) HANYA sebesar yang dibutuhkan,
+        // sampai batas maksimum. Jadi pemenang membayar harga akhirnya, bukan batas maksimumnya; selisih dana jaminan dikembalikan.
+        // Pesaing menawar sesuai gayanya (TENDER_STYLE). Semuanya deterministik dari auRoll, jadi reload/save ulang tidak bisa mengulang undian.
+        const TENDER_AUC = { rounds: 8, unit: 1e9, floor: 0.80, openMax: 1.30, capMax: 1.60, steps: [0.01, 0.02, 0.04], hourMs: 3600000 };
+        // entry = putaran pertama pesaing ikut, f = porsi selisih ke batas atasnya yang dinaikkan tiap tawaran, capF = pengali batas atasnya.
+        // snipe = hanya menawar di putaran terakhir SETELAH sistem proxy Anda (tidak sempat dibalas), langsung lompat ke batasnya.
+        const TENDER_STYLE = {
+            agresif:     { entry: 0, f: 0.50, capF: 1.04 },                 // langsung masuk, naik besar, mau bayar paling tinggi
+            oportunis:   { entry: 7, f: 1.00, capF: 1.00, snipe: true },    // menunggu, lalu menyergap di putaran penutup
+            'hati-hati': { entry: 2, f: 0.25, capF: 0.97 },                 // masuk belakangan, naik pelan
+            konservatif: { entry: 1, f: 0.20, capF: 0.93 }                  // naik pelan dan berhenti paling cepat
+        };
+        // Pesaing AI untuk blok ini: murni fungsi dari auRoll (u). top = batas atas pesaing terkuat (x nilai lelang), list = tiap pesaing + batasnya.
+        function tenderRivalsOf(b, uo) {
+            const u = typeof uo === 'number' ? uo : b.auRoll, f = k => (u * k) % 1;
             const top = u < 0.6 ? 0.80 + (u / 0.6) * 0.20 : u < 0.9 ? 1.0 + ((u - 0.6) / 0.3) * 0.30 : 1.30 + ((u - 0.9) / 0.1) * 0.25;
             const lead = Math.floor(f(7919) * TENDER_RIVALS.length), n = Math.min(3, 1 + (b.tier >= 2 ? 1 : 0) + (f(104729) < 0.4 ? 1 : 0));
-            const names = []; for (let i = 0; i < n; i++) names.push(TENDER_RIVALS[(lead + i) % TENDER_RIVALS.length].n);
-            return { top, bid: Math.floor(b.bid * top / 1e9 + 1e-9) * 1e9, lead: names[0], names };
+            const list = [];
+            for (let i = 0; i < n; i++) {
+                const r = TENDER_RIVALS[(lead + i) % TENDER_RIVALS.length], st = TENDER_STYLE[r.style] || TENDER_STYLE.oportunis;
+                const base = i === 0 ? top : top * (0.82 + f(1299709 + i * 7919) * 0.14);
+                list.push({ n: r.n, style: r.style, cap: Math.max(TENDER_AUC.floor, base * st.capF) });
+            }
+            return { top, bid: Math.floor(b.bid * top / 1e9 + 1e-9) * 1e9, lead: list[0].n, names: list.map(x => x.n), list };
+        }
+        // Menjalankan lelang sampai putaran ke-upto. my = { open, step, log:[{r, max}] } (log = riwayat batas maksimum), w = kekuatan tawar reputasi.
+        // Urutan tiap putaran: pesaing biasa menawar -> proxy Anda membalas -> (putaran terakhir saja) penyergap menawar tanpa bisa dibalas.
+        // Hasil: lead ('me' / indeks pesaing), rank (nilai tertinggi), myPrice (harga tawar Anda saat ini), ev (riwayat penawaran).
+        function tenderAucRun(V, rivals, my, w, upto) {
+            const U = TENDER_AUC.unit, up = x => Math.ceil(x / U - 1e-9) * U, dn = x => Math.floor(x / U + 1e-9) * U;
+            const stepOf = pct => Math.max(U, up(V * pct)), caps = rivals.map(x => dn(x.cap * V));
+            const capAt = r => { let m = my.log[0].max; my.log.forEach(e => { if (e.r <= r) m = e.max; }); return m; };
+            let lead = '', rank = 0, myPrice = 0; const ev = [];
+            const rivalBid = (r, i) => {
+                const st = TENDER_STYLE[rivals[i].style] || TENDER_STYLE.oportunis;
+                if (r < st.entry || lead === i) return;
+                const next = Math.min(caps[i], up(rank + Math.max(U, st.f * (caps[i] - rank))));
+                if (next <= rank) return;
+                ev.push({ r, who: i, price: next, from: lead, kind: 'bid' }); lead = i; rank = next;
+            };
+            for (let r = 0; r < upto; r++) {
+                if (r === 0) { myPrice = my.open; lead = 'me'; rank = myPrice * w; ev.push({ r, who: -1, price: myPrice, from: '', kind: 'open' }); }
+                rivals.forEach((rv, i) => { if (!(TENDER_STYLE[rv.style] || {}).snipe) rivalBid(r, i); });
+                if (lead !== 'me') {
+                    const np = Math.min(capAt(r), up((rank + stepOf(my.step)) / w));
+                    if (np > myPrice && np * w > rank + 1) { ev.push({ r, who: -1, price: np, from: lead, kind: 'raise' }); myPrice = np; rank = np * w; lead = 'me'; }
+                }
+                if (r === TENDER_AUC.rounds - 1) rivals.forEach((rv, i) => { if ((TENDER_STYLE[rv.style] || {}).snipe) rivalBid(r, i); });
+            }
+            return { lead, rank, myPrice, ev };
+        }
+        // Perkiraan peluang menang & harga bayar untuk form penawaran (120 skenario pesaing merata, bukan hasil sebenarnya blok ini).
+        function tenderAucEstimate(b, my, w) {
+            const N = 120; let win = 0, paid = 0;
+            for (let i = 0; i < N; i++) {
+                const run = tenderAucRun(b.bid, tenderRivalsOf(b, (i + 0.5) / N).list, my, w, TENDER_AUC.rounds);
+                if (run.lead === 'me') { win++; paid += run.myPrice; }
+            }
+            return { win: win / N, avg: win ? paid / win : 0 };
         }
         function tenderEnsureOpen() {
             const bk = hulu.blok; let n = 0;
@@ -156,7 +213,7 @@
             return { id: 'b' + seq, seq, ai, tier, fuel, lat: num(r.lat, TENDER_AREAS[ai].lat, -12, 6), lon: num(r.lon, TENDER_AREAS[ai].lon, 95, 130), dev,
                      bid: num(r.bid, 200e9, 1e9, 1e13), p: num(r.p, 0.4, 0, 1), roll: num(r.roll, Math.random(), 0, 1), auRoll: num(r.auRoll, Math.random(), 0, 1),
                      stage: TENDER_STAGES.indexOf(r.stage) >= 0 ? r.stage : 'open', stageGt: num(r.stageGt, 0, 0, 1e18), mode: TENDER.bidMode[r.mode] ? r.mode : '',
-                     sunk: num(r.sunk, 0, 0, 1e14), nat: false, snipeAt: num(r.snipeAt, 0, 0, 1e18),
+                     sunk: num(r.sunk, 0, 0, 1e14), auc: tenderCleanAuc(r.auc), nat: false, snipeAt: num(r.snipeAt, 0, 0, 1e18),
                      nk: typeof r.nk === 'string' && /^n\d{3,7}_\d$/.test(r.nk) ? r.nk : '' };
         }
         function tenderBlokLoad(raw) {
@@ -188,29 +245,142 @@
         };
         const tenderNoCash = (what, cost) => showModal('Kas Tidak Cukup', `${what} butuh ${formatRupiah(cost)}.`, 'fa-triangle-exclamation', 'red');
 
-        async function tenderBid(id, mode) {
+        const tenderHash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
+        // Data lelang berjalan disimpan di b.auc. Save lama (mode std/agr) dimigrasi: penawaran awal = batas = tawaran lama.
+        function tenderAucOf(b) {
+            if (b.auc) return b.auc;
+            const M = TENDER.bidMode[b.mode] || TENDER.bidMode.std, p = Math.round(b.bid * M.mult);
+            return (b.auc = { open: p, max: p, step: 0.02, esc: p, t0: b.stageGt - TENDER_AUC.rounds * TENDER_AUC.hourMs, seen: 0, w: corpBidPower(), log: [{ r: 0, max: p }] });
+        }
+        function tenderCleanAuc(a) {
+            if (!a || typeof a !== 'object') return null;
+            const n = (v, d, lo, hi) => (typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+            const log = (Array.isArray(a.log) ? a.log : []).slice(0, 16).map(e => ({ r: Math.floor(n(e && e.r, 0, 0, 7)), max: n(e && e.max, 0, 0, 1e14) })).filter(e => e.max > 0);
+            if (!log.length) return null;
+            const max = n(a.max, 0, 0, 1e14);
+            return { open: n(a.open, 0, 0, 1e14), max, step: TENDER_AUC.steps.indexOf(a.step) >= 0 ? a.step : 0.02, esc: n(a.esc, max, 0, 1e14),
+                     t0: n(a.t0, 0, 0, 1e18), seen: Math.floor(n(a.seen, 0, 0, 8)), w: n(a.w, 1, 0.5, 2), log };
+        }
+        const tenderAucRounds = (b, now) => Math.max(0, Math.min(TENDER_AUC.rounds, Math.floor((now - tenderAucOf(b).t0) / TENDER_AUC.hourMs) + 1));
+        const tenderAucRunOf = (b, upto) => { const A = tenderAucOf(b); return tenderAucRun(b.bid, tenderRivalsOf(b).list, A, A.w || 1, upto); };
+        // Dipanggil tiap tick: memunculkan log + notifikasi untuk putaran yang baru lewat (termasuk "ditawar lebih tinggi").
+        function tenderAucProgress(b, now) {
+            const A = tenderAucOf(b), played = tenderAucRounds(b, now);
+            if (played <= A.seen) return false;
+            const run = tenderAucRunOf(b, played), rv = tenderRivalsOf(b).list, name = tenderName(b);
+            run.ev.filter(e => e.r >= A.seen).forEach(e => {
+                if (e.who >= 0 && e.from === 'me') {
+                    addLog(`TENDER: ${rv[e.who].n} menawar ${formatRupiah(Math.round(e.price))} untuk ${name}, melewati penawaran Anda.`, 'warning');
+                    notify(`Ditawar lebih tinggi di ${name}: ${rv[e.who].n} (${formatRupiah(Math.round(e.price))}).`, 'warn');
+                } else if (e.who < 0 && e.kind === 'raise') addLog(`TENDER: Penawaran Anda untuk ${name} otomatis naik ke ${formatRupiah(Math.round(e.price))}.`, 'info');
+            });
+            A.seen = played; return true;
+        }
+        function tenderAucHtml(b) {
+            const A = tenderAucOf(b), played = Math.max(1, tenderAucRounds(b, gameNow())), rv = tenderRivalsOf(b).list, run = tenderAucRunOf(b, played);
+            const pos = run.lead === 'me' ? `<b class="text-emerald-400">Anda memimpin</b> di ${formatRupiah(Math.round(run.myPrice))}`
+                : `<b class="text-orange-400">${esc(rv[run.lead].n)}</b> memimpin di ${formatRupiah(Math.round(run.rank))}`;
+            const rows = run.ev.slice(-6).reverse().map(e => `<div class="flex justify-between text-[10px] py-0.5 border-b border-gray-900"><span class="text-gray-400">Jam ${e.r} &middot; <span class="text-gray-300">${e.who < 0 ? (e.kind === 'open' ? 'Penawaran awal Anda' : 'Anda (otomatis)') : esc(rv[e.who].n)}</span></span><span class="font-mono text-gray-300">${formatRupiah(Math.round(e.price))}</span></div>`).join('');
+            const late = played >= TENDER_AUC.rounds || A.max >= Math.round(TENDER_AUC.capMax * b.bid / TENDER_AUC.unit) * TENDER_AUC.unit;
+            return `<div class="mt-2 text-[10px] text-gray-400">${pos}<br>Batas maksimum Anda <b class="text-gray-300">${formatRupiah(Math.round(A.max))}</b> &middot; dana terkunci ${formatRupiah(Math.round(A.esc))}</div>
+                <div class="mt-1.5">${rows}</div>
+                ${late ? '' : `<button onclick="tenderRaise('${b.id}')" class="w-full mt-2 bg-amber-700 hover:bg-amber-600 text-white font-bold py-1.5 rounded-xl text-[11px] transition"><i class="fa-solid fa-arrow-up mr-1"></i>Naikkan Batas Maksimum</button>`}`;
+        }
+        // Form penawaran: penawaran awal, batas maksimum (harga cadangan), kenaikan per putaran + perkiraan peluang menang.
+        function tenderBidForm(b, o = {}) {
+            return new Promise(resolve => {
+                const V = b.bid, U = TENDER_AUC.unit, w = corpBidPower(), raise = !!o.raise, A = o.auc || null, rv = tenderRivalsOf(b).list;
+                const px = m => Math.ceil(m * V / U - 1e-9) * U, clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+                const old = document.getElementById('tender-bid-modal'); if (old) old.remove();
+                const el = document.createElement('div');
+                el.id = 'tender-bid-modal'; el.className = 'fixed inset-0 bg-black/75 backdrop-blur-sm z-[10650] flex items-center justify-center p-4';
+                const fld = 'w-full bg-gray-950 border border-gray-700 rounded-lg px-2.5 py-2 text-xs text-gray-100 font-mono focus:outline-none focus:border-teal-500';
+                const lbl = 'block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1';
+                const sn = rv.some(x => (TENDER_STYLE[x.style] || {}).snipe);
+                el.innerHTML = `<div class="bg-gray-900 border border-gray-800 rounded-xl p-4 max-w-sm w-full shadow-2xl max-h-[92vh] overflow-y-auto">
+                    <h3 class="text-sm font-bold text-gray-100 mb-0.5"><i class="fa-solid fa-gavel text-amber-400 mr-1.5"></i>${raise ? 'Naikkan Batas Maksimum' : 'Ikut Lelang'}</h3>
+                    <p class="text-[11px] text-gray-400 mb-2">${esc(tenderName(b))} &middot; nilai dasar <b class="text-amber-400">${formatRupiah(V)}</b></p>
+                    <div class="text-[10px] text-gray-400 mb-3 leading-relaxed">Pesaing: ${rv.map(x => `<b class="text-gray-300">${esc(x.n)}</b> <span class="text-gray-500">(${esc(x.style)})</span>`).join(', ')}${sn ? '<br><span class="text-orange-400">Ada penyergap: menawar di putaran terakhir dan tidak sempat Anda balas. Penawaran yang sudah tinggi di akhir memperkecil risikonya.</span>' : ''}</div>
+                    ${raise ? '' : `<label class="${lbl}">Penawaran awal (&times; nilai dasar, 0,80 - 1,30)</label>
+                    <input id="tb-f-open" type="number" inputmode="decimal" step="0.01" min="0.8" max="1.3" value="0.90" class="${fld}"><div id="tb-r-open" class="text-[10px] text-gray-500 mt-0.5 mb-2.5"></div>`}
+                    <label class="${lbl}">Batas maksimum / harga cadangan (&times; nilai dasar, sampai 1,60)</label>
+                    <input id="tb-f-max" type="number" inputmode="decimal" step="0.01" min="0.8" max="1.6" value="${raise ? ((A.max / V) + 0.2).toFixed(2) : '1.20'}" class="${fld}"><div id="tb-r-max" class="text-[10px] text-gray-500 mt-0.5 mb-2.5"></div>
+                    ${raise ? '' : `<label class="${lbl}">Kenaikan otomatis per putaran</label>
+                    <select id="tb-f-step" class="${fld} mb-2.5"><option value="0.01">1% (pelan, hemat)</option><option value="0.02" selected>2%</option><option value="0.04">4% (cepat, lebih mahal)</option></select>`}
+                    <div id="tb-est" class="text-[10px] text-gray-300 bg-gray-950 border border-gray-800 rounded-lg p-2 mb-3 leading-relaxed"></div>
+                    <div class="flex gap-2"><button id="tb-cancel" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold py-2.5 rounded-lg text-xs transition">Batal</button>
+                    <button id="tb-ok" class="flex-1 bg-teal-700 hover:bg-teal-600 text-white font-bold py-2.5 rounded-lg text-xs transition">${raise ? 'Naikkan' : 'Ajukan Penawaran'}</button></div></div>`;
+                document.body.appendChild(el);
+                const q = id => el.querySelector('#' + id);
+                const read = () => {
+                    const op = raise ? A.open / V : clamp(parseFloat(q('tb-f-open').value) || 0.9, TENDER_AUC.floor, TENDER_AUC.openMax);
+                    const lo = raise ? A.max / V + 0.01 : op, mx = clamp(parseFloat(q('tb-f-max').value) || lo, lo, TENDER_AUC.capMax);
+                    return { open: raise ? A.open : px(op), max: raise ? Math.max(px(mx), A.max + U) : Math.max(px(mx), px(op)), step: raise ? A.step : (parseFloat(q('tb-f-step').value) || 0.02) };
+                };
+                const upd = () => {
+                    const f = read();
+                    if (q('tb-r-open')) q('tb-r-open').textContent = '= ' + formatRupiah(f.open);
+                    q('tb-r-max').textContent = '= ' + formatRupiah(f.max);
+                    const need = raise ? f.max - A.max : f.max, short = companyCash < need;
+                    if (raise) q('tb-est').innerHTML = `Tambahan dana jaminan <b class="${short ? 'text-red-400' : 'text-gray-100'}">${formatRupiah(need)}</b>. Berlaku mulai putaran berikutnya.`;
+                    else {
+                        const e = tenderAucEstimate(b, { open: f.open, step: f.step, log: [{ r: 0, max: f.max }] }, w);
+                        q('tb-est').innerHTML = `Dana jaminan dikunci <b class="${short ? 'text-red-400' : 'text-gray-100'}">${formatRupiah(need)}</b>. Menang: hanya harga akhir yang dibayar, sisanya kembali. Kalah: ${Math.round((1 - tenderRefund()) * 100)}% dari tawaran terakhir hangus.<br>Perkiraan peluang menang <b class="text-amber-400">${Math.round(e.win * 100)}%</b>${e.win ? `, harga bayar rata-rata <b class="text-amber-400">${formatRupiah(Math.round(e.avg / U) * U)}</b>` : ''}.`;
+                    }
+                };
+                el.querySelectorAll('input,select').forEach(i => { i.addEventListener('input', upd); i.addEventListener('change', upd); });
+                const done = v => { el.remove(); resolve(v); };
+                q('tb-cancel').onclick = () => done(null);
+                q('tb-ok').onclick = () => { const f = read(); if (raise && f.max <= A.max) return; done(f); };
+                upd();
+            });
+        }
+        async function tenderBid(id) {
             if (pphBlokir()) return;
-            let b = tenderFind(id); const M = TENDER.bidMode[mode];
-            if (!currentAccount || !b || !M || b.stage !== 'open') return;
-            const cost = Math.round(b.bid * M.mult), nat = b.nat, rv = tenderRivalsOf(b);
-            if (companyCash < cost) return tenderNoCash('Lelang ' + tenderName(b), cost);
+            let b = tenderFind(id);
+            if (!currentAccount || !b || b.stage !== 'open') return;
+            const nat = b.nat;
             if (nat && hulu.blok.list.length >= TENDER.listMax) return showModal('Daftar Blok Penuh', 'Selesaikan atau lepas salah satu blok dulu sebelum mengambil Blok Nasional.', 'fa-triangle-exclamation', 'amber');
-            const ok = await showConfirm(`Ikut lelang ${tenderName(b)} dengan ${M.label.toLowerCase()} ${formatRupiah(cost)}? ${nat ? 'Ini BLOK NASIONAL: pemain lain juga mengincarnya, yang pertama mengajukan penawaran merebut hak lelang. ' : ''}Pesaing AI yang tertarik: ${rv.names.join(', ')}. Peluang menang ${tenderWin(mode)}%, hasil diumumkan ±${TENDER.hours.lelang} jam game. Kalah lelang: dana kembali ${Math.round(tenderRefund() * 100)}% (sisanya biaya administrasi). Menang: hak blok jadi milik Anda dan uang lelang tidak kembali.`,
-                { title: 'Lelang Blok Migas', iconClass: 'fa-gavel', theme: 'blue', okLabel: 'Ajukan Penawaran' });
-            if (!ok || b.stage !== 'open' || companyCash < cost) return;
+            const f = await tenderBidForm(b);
+            if (!f || b.stage !== 'open') return;
+            const cost = f.max;   // dana jaminan = batas maksimum; selisih dengan harga akhir dikembalikan saat lelang selesai
+            if (companyCash < cost) return tenderNoCash('Dana jaminan lelang ' + tenderName(b), cost);
             if (nat) {   // rebut hak lelang dari pemain nyata lain (atomik) lalu pindahkan ke daftar blok pribadi
                 let r; try { r = await window.fb.claimBlok(b.id, currentAccount.id, currentAccount.company); } catch (e) { r = null; console.warn('claimBlok:', e); }
                 if (!r) return showModal('Tidak Terhubung', 'Gagal menghubungi server untuk merebut Blok Nasional. Periksa koneksi dan coba lagi.', 'fa-wifi', 'red');
+                if (r.limit) return showModal('Jatah Klaim Habis', 'Anda sudah merebut satu Blok Nasional di periode ini. Tunggu periode berikutnya (±6 jam nyata) untuk merebut lagi.', 'fa-hourglass-half', 'amber');
                 tenderClaims[b.id] = { uid: r.mine ? currentAccount.id : '', company: r.by || currentAccount.company };
                 if (!r.ok) { huluRender(); tenderSyncMarkers(); return showModal('Blok Sudah Direbut', r.mine ? 'Blok ini sudah pernah Anda ambil.' : `${esc(tenderName(b))} baru saja direbut <b>${esc(r.by)}</b> (pemain nyata). Coba blok lain.`, 'fa-user-group', 'amber'); }
                 const bk = hulu.blok, seq = ++bk.seq, nb = Object.assign({}, b, { id: 'b' + seq, seq, nat: false, nk: b.id, dev: Object.assign({}, b.dev) });
+                // Hasil blok (peluang sukses, undian bor, undian pesaing) diundi ULANG dari jam server saat klaim, bukan dari seed yang terbaca di kode,
+                // jadi pemain tidak bisa menghitung lebih dulu blok mana yang untung sebelum merebutnya.
+                const R = tenderRng((Math.floor(r.at || Date.now()) ^ tenderHash(b.id)) >>> 0), T = TENDER.tiers[b.tier];
+                nb.p = Math.min(0.85, Math.max(0.08, T.p + (R() * 0.36 - 0.18))); nb.roll = R(); nb.auRoll = R();
                 bk.list.push(nb); b = nb;
+                if (typeof saveGame === 'function') saveGame();   // klaim sudah tercatat di server: simpan segera supaya blok tidak hilang kalau tab ditutup
                 if (companyCash < cost) { addLog(`TENDER: Blok Nasional ${tenderName(b)} berhasil direbut, tetapi kas tidak cukup untuk menawar. Blok tersimpan di daftar Anda.`, 'warning'); tenderSyncMarkers(); return huluRender(); }
             }
-            tenderPay(b, cost, `Lelang ${tenderName(b)} (${M.label})`);
-            b.mode = mode; b.stage = 'tender'; b.stageGt = gameNow() + TENDER.hours.lelang * 3600000;
-            addLog(`TENDER: Penawaran ${formatRupiah(cost)} untuk ${tenderName(b)} diajukan. Hasil lelang ±${TENDER.hours.lelang} jam game.`, 'info');
+            tenderPay(b, cost, `Dana jaminan lelang ${tenderName(b)}`);
+            b.stage = 'tender'; b.stageGt = gameNow() + TENDER.hours.lelang * 3600000;
+            b.auc = { open: f.open, max: f.max, step: f.step, esc: cost, t0: gameNow(), seen: 0, w: corpBidPower(), log: [{ r: 0, max: f.max }] };
+            addLog(`TENDER: Penawaran awal ${formatRupiah(f.open)} (batas ${formatRupiah(f.max)}) untuk ${tenderName(b)} diajukan. Lelang berjalan ${TENDER_AUC.rounds} putaran (±${TENDER.hours.lelang} jam game).`, 'info');
             tenderSyncMarkers(); huluRender();
+        }
+        async function tenderRaise(id) {
+            if (pphBlokir()) return;
+            const b = tenderFind(id); if (!currentAccount || !b || b.stage !== 'tender') return;
+            const A = tenderAucOf(b), U = TENDER_AUC.unit, capRp = Math.round(TENDER_AUC.capMax * b.bid / U) * U;
+            if (tenderAucRounds(b, gameNow()) >= TENDER_AUC.rounds) return showModal('Terlambat', 'Putaran terakhir sudah lewat, batas tidak bisa dinaikkan lagi.', 'fa-clock', 'amber');
+            if (A.max >= capRp) return showModal('Batas Sudah Maksimal', 'Batas maksimum sudah di angka tertinggi yang diizinkan (1,60 x nilai dasar).', 'fa-ban', 'amber');
+            const f = await tenderBidForm(b, { raise: true, auc: A });
+            if (!f || b.stage !== 'tender') return;
+            const extra = f.max - A.max, r = tenderAucRounds(b, gameNow());   // berlaku mulai putaran yang belum berjalan
+            if (extra <= 0 || r >= TENDER_AUC.rounds) return showModal('Terlambat', 'Putaran terakhir sudah lewat, batas tidak bisa dinaikkan lagi.', 'fa-clock', 'amber');
+            if (companyCash < extra) return tenderNoCash('Tambahan dana jaminan', extra);
+            tenderPay(b, extra, `Tambahan dana jaminan lelang ${tenderName(b)}`);
+            A.max = f.max; A.esc += extra; A.log.push({ r, max: f.max });
+            addLog(`TENDER: Batas maksimum ${tenderName(b)} dinaikkan ke ${formatRupiah(f.max)} (berlaku putaran ${r + 1}).`, 'info');
+            huluRender();
         }
         async function tenderSurvey(id) {
             if (pphBlokir()) return;
@@ -250,25 +420,23 @@
         function tenderRemove(b) { const l = hulu.blok.list, i = l.indexOf(b); if (i >= 0) l.splice(i, 1); }
 
         // DAY_MS sudah dideklarasikan di 05-hr-kemitraan.js (dideklarasi ulang di sini = SyntaxError yang membuat seluruh file ini gagal termuat).
-        // Peluang menang sesungguhnya = P(penawaran tertinggi pesaing < kekuatan tawar Anda), kekuatan = kelipatan x bonus reputasi (lihat tenderRivalsOf).
-        const tenderWin = mode => {
-            const m = TENDER.bidMode[mode].mult * corpBidPower();
-            return Math.round((m <= 0.8 ? 0 : m < 1.0 ? (m - 0.8) / 0.2 * 0.6 : m < 1.3 ? 0.6 + (m - 1.0) / 0.3 * 0.3 : m < 1.55 ? 0.9 + (m - 1.3) / 0.25 * 0.1 : 1) * 100);
-        };
         const tenderRefund = () => Math.min(0.98, Math.max(0.5, TENDER.refund + corpRefundBonus()));
         function tenderResolveBid(b) {
-            const M = TENDER.bidMode[b.mode] || TENDER.bidMode.std, name = tenderName(b), rv = tenderRivalsOf(b), mine = Math.round(b.bid * M.mult);
-            if (M.mult * corpBidPower() > rv.top) {
-                b.stage = 'won'; b.stageGt = 0;
-                addLog(`TENDER: Anda MEMENANGKAN lelang ${name} (${formatRupiah(mine)}) mengalahkan ${rv.lead} (${formatRupiah(rv.bid)})${rv.bid >= mine ? ', unggul berkat reputasi perusahaan' : ''}. Lanjutkan dengan survei seismik.`, 'success');
-                notify(`Lelang ${name} dimenangkan atas ${rv.lead}!`, 'ok');
+            const A = tenderAucOf(b), name = tenderName(b), run = tenderAucRunOf(b, TENDER_AUC.rounds), rv = tenderRivalsOf(b).list;
+            const back = (amt, desc) => { amt = Math.round(amt); if (amt <= 0) return; companyCash += amt; totalExpense -= amt; b.sunk -= amt; hulu.blok.spent -= amt; addFinanceLog(desc, amt); updateCashDisplay(); };
+            const lastRival = run.ev.filter(e => e.who >= 0).pop();
+            if (run.lead === 'me') {
+                back(A.esc - run.myPrice, `Sisa dana jaminan lelang ${name}`);
+                b.stage = 'won'; b.stageGt = 0; b.auc = null;
+                addLog(`TENDER: Anda MEMENANGKAN lelang ${name} dengan harga ${formatRupiah(Math.round(run.myPrice))}${lastRival ? `, mengalahkan ${rv[lastRival.who].n} (${formatRupiah(Math.round(lastRival.price))})` : ''}. Sisa dana jaminan dikembalikan. Lanjutkan dengan survei seismik.`, 'success');
+                notify(`Lelang ${name} dimenangkan di ${formatRupiah(Math.round(run.myPrice))}!`, 'ok');
             } else {
-                const back = Math.round(b.sunk * tenderRefund());
-                companyCash += back; totalExpense -= back; b.sunk -= back; hulu.blok.spent -= back;
-                addFinanceLog(`Pengembalian dana lelang ${name} (kalah)`, back); updateCashDisplay();
-                b.stage = 'open'; b.mode = ''; b.stageGt = 0; b.auRoll = Math.random(); b.snipeAt = gameNow() + tRnd(2, 6) * DAY_MS;
-                addLog(`TENDER: Kalah lelang ${name}. ${rv.lead} menawar ${formatRupiah(rv.bid)} (Anda ${formatRupiah(mine)}${rv.bid < mine ? ', kalah karena reputasi rendah' : ''}). Dana ${formatRupiah(back)} dikembalikan. Blok dibuka lagi, Anda bisa ikut lagi.`, 'warning');
-                notify(`Kalah dari ${rv.lead} (${formatRupiah(rv.bid)}). Dana dikembalikan ${Math.round(tenderRefund() * 100)}%.`, 'warn');
+                const fee = Math.round(run.myPrice * (1 - tenderRefund()));
+                back(A.esc - fee, `Pengembalian dana jaminan lelang ${name} (kalah)`);
+                const w = rv[run.lead];
+                b.stage = 'open'; b.mode = ''; b.auc = null; b.stageGt = 0; b.auRoll = Math.random(); b.snipeAt = gameNow() + tRnd(2, 6) * DAY_MS;
+                addLog(`TENDER: Kalah lelang ${name}. ${w.n} menang di ${formatRupiah(Math.round(run.rank))} (tawaran terakhir Anda ${formatRupiah(Math.round(run.myPrice))}, batas ${formatRupiah(Math.round(A.max))}). Biaya administrasi ${formatRupiah(fee)}, sisa dana dikembalikan. Blok dibuka lagi.`, 'warning');
+                notify(`Kalah dari ${w.n} (${formatRupiah(Math.round(run.rank))}). Dana jaminan dikembalikan.`, 'warn');
             }
         }
         // Pesaing AI merebut blok terbuka yang terlalu lama dibiarkan.
@@ -313,7 +481,7 @@
                 if (b.stage === 'open') {
                     if (!b.snipeAt || b.snipeAt > now + 8 * DAY_MS) b.snipeAt = now + tRnd(2, 6) * DAY_MS;   // blok lama / jam game mundur
                     else if (now >= b.snipeAt) { tenderSnipe(b); changed = true; }
-                } else if (b.stage === 'tender' && now >= b.stageGt) { tenderResolveBid(b); changed = true; }
+                } else if (b.stage === 'tender') { if (now >= b.stageGt) { tenderResolveBid(b); changed = true; } else if (tenderAucProgress(b, now)) changed = true; }
                 else if (b.stage === 'seismic' && now >= b.stageGt) { tenderResolveSurvey(b); changed = true; }
                 else if (b.stage === 'drilling' && now >= b.stageGt) { tenderResolveDrill(b); changed = true; }
             });
@@ -406,12 +574,9 @@
                 : `±${fmtN(T.rate[0])}-${fmtN(T.rate[1])} ${unit}/hari, HPP ±${formatRupiah(Math.round(base * T.hppF / 1000) * 1000)}/${unit}`;
             let act = '';
             if (b.stage === 'open') {
-                const std = TENDER.bidMode.std, agr = TENDER.bidMode.agr;
                 const rv = tenderRivalsOf(b), soon = b.snipeAt && b.snipeAt - (b.nat ? Date.now() : gameNow()) < (b.nat ? 3 * 3600000 : DAY_MS);
-                act = `<div class="text-[10px] text-gray-400 mb-2"><i class="fa-solid fa-user-tie text-sky-400 mr-1"></i>Pesaing tertarik: <b class="text-gray-300">${rv.names.map(esc).join(', ')}</b>${soon ? ' <b class="text-orange-400">&middot; segera direbut</b>' : ''}${b.nat ? `<div id="tb-nat-${b.id}" class="mt-0.5 text-sky-300"></div>` : ''}</div>
-                    <div class="grid grid-cols-2 gap-2">
-                    <button onclick="tenderBid('${b.id}','std')" class="bg-teal-700 hover:bg-teal-600 text-white font-bold py-2 rounded-xl text-[11px] transition leading-tight">Lelang Standar<br><span class="font-mono font-semibold">${formatRupiah(Math.round(b.bid * std.mult))}</span><br><span class="font-normal opacity-80">menang ${tenderWin('std')}%</span></button>
-                    <button onclick="tenderBid('${b.id}','agr')" class="bg-amber-700 hover:bg-amber-600 text-white font-bold py-2 rounded-xl text-[11px] transition leading-tight">Lelang Agresif<br><span class="font-mono font-semibold">${formatRupiah(Math.round(b.bid * agr.mult))}</span><br><span class="font-normal opacity-80">menang ${tenderWin('agr')}%</span></button></div>`;
+                act = `<div class="text-[10px] text-gray-400 mb-2"><i class="fa-solid fa-user-tie text-sky-400 mr-1"></i>Pesaing tertarik: ${rv.list.map(x => `<b class="text-gray-300">${esc(x.n)}</b> <span class="text-gray-500">(${esc(x.style)})</span>`).join(', ')}${soon ? ' <b class="text-orange-400">&middot; segera direbut</b>' : ''}${b.nat ? `<div id="tb-nat-${b.id}" class="mt-0.5 text-sky-300"></div>` : ''}</div>
+                    <button onclick="tenderBid('${b.id}')" class="w-full bg-teal-700 hover:bg-teal-600 text-white font-bold py-2.5 rounded-xl text-[11px] transition leading-tight"><i class="fa-solid fa-gavel mr-1.5"></i>Ikut Lelang<br><span class="font-normal opacity-80">nilai dasar <span class="font-mono font-semibold">${formatRupiah(b.bid)}</span> &middot; tentukan penawaran sendiri</span></button>`;
             } else if (b.stage === 'won') {
                 act = `<button onclick="tenderSurvey('${b.id}')" class="w-full bg-sky-700 hover:bg-sky-600 text-white font-bold py-2 rounded-xl text-xs transition"><i class="fa-solid fa-wave-square mr-1.5"></i>Survei Seismik (${formatRupiah(tenderSeis(b))})</button>
                     <button onclick="tenderDrop('${b.id}')" class="w-full mt-2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-1.5 rounded-xl text-[11px] transition">Lepas Blok</button>`;
@@ -419,7 +584,7 @@
                 act = `<button onclick="tenderDrill('${b.id}')" class="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-2 rounded-xl text-xs transition"><i class="fa-solid fa-oil-well mr-1.5"></i>Bor Eksplorasi (${formatRupiah(tenderBor(b))})</button>
                     <button onclick="tenderDrop('${b.id}')" class="w-full mt-2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-1.5 rounded-xl text-[11px] transition">Lepas Blok</button>`;
             } else {
-                act = `<div id="tb-bar-${b.id}"></div><div id="tb-left-${b.id}" class="text-[10px] text-gray-400 mt-1.5"></div>`;
+                act = `<div id="tb-bar-${b.id}"></div><div id="tb-left-${b.id}" class="text-[10px] text-gray-400 mt-1.5"></div>${b.stage === 'tender' ? tenderAucHtml(b) : ''}`;
             }
             return `<div class="bg-gray-950 p-3.5 rounded-xl border border-gray-800 shadow border-t-2 border-t-${gas ? 'orange' : 'teal'}-500">
                 <div class="flex items-start justify-between gap-2 mb-1.5">

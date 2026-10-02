@@ -393,7 +393,7 @@
         function shipRefreshMarker(id) {
             if (typeof parkedMarkers === 'undefined') return;
             const pm = parkedMarkers.get(id); if (!pm) return;
-            pm.setTooltipContent(esc(`${id} · ${shipStateLabel(id)}`));
+            setTruckTip(pm, id, `${id} · ${shipStateLabel(id)}`, false);
             const ll = shipParkLL(id); if (ll) pm.setLatLng(ll);
         }
         function shipInfoHtml(id) {

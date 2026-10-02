@@ -25,8 +25,229 @@
             }));
         })();
 
+
+        // ===== KOORDINAT SPBU NYATA (update v1.9.1) =====
+        // Menggantikan koordinat acak/lama per wilayah. Urutan SPBU = urutan di data baru: SPBU ke-1 tiap wilayah = COCO,
+        // 3 SPBU pertama auto-aktif (aturan di initSpbuDatabase). Kode SPBU lama dipertahankan berurutan agar save lama tetap cocok.
+        // Format: [nama, kecamatan, lat, lon, jenis]. Nama dibuat acak (fiktif). jenis: 'SPBU' (BBM saja), 'SPBU+LPG' (BBM + LPG), 'SPPBE' (outlet LPG saja, tanpa BBM). Wilayah gabungan memakai urutan kota seperti data baru (mis. Banyuwangi lalu Situbondo).
+        const SPBU_REAL = {
+          "Situbondo & Banyuwangi": [
+            ["SPBU Nusa Barokah", "Kabat", -8.294528550115846, 114.30919289991299, "SPBU"],
+            ["SPBU Rejeki Abadi", "Rogojampi", -8.345260349215872, 114.28146623295137, "SPBU+LPG"],
+            ["SPBU Mulia Agung", "Rogojampi", -8.406679216792112, 114.25803599444153, "SPBU+LPG"],
+            ["SPBU Artha Utama", "Gambiran", -8.4068569707597, 114.16654698916707, "SPBU"],
+            ["SPBU Maju Perkasa", "Tegalsari", -8.355553265602143, 114.13045963001883, "SPBU"],
+            ["SPBU Gemilang Agung", "Kalibaru", -8.29788121121832, 113.99681316304299, "SPBU"],
+            ["SPBU Citra Agung", "Wongsorejo", -7.981400865474921, 114.39720526354832, "SPBU"],
+            ["SPBU Sinar Jaya", "Wongsorejo", -8.065583309254793, 114.41852178400126, "SPBU"],
+            ["SPBU Graha Agung", "Kalipuro", -8.114634528531175, 114.40111227505378, "SPBU"],
+            ["SPBU Sentosa Makmur", "Kalipuro", -8.152322005978117, 114.39667693044291, "SPBU"],
+            ["SPBU Bintang Bersama", "Banyuputih", -7.759293666506102, 114.26358449946062, "SPBU"],
+            ["SPPBE Makmur Bersama", "Asembagus", -7.7496085301842585, 114.22314381972751, "SPPBE"],
+            ["SPPBE Mitra Sentral", "Arjasa", -7.726054183014699, 114.13314612147036, "SPPBE"],
+            ["SPBU Berkah Sentral", "Kapongan", -7.694507508954372, 114.09356590027491, "SPBU"],
+            ["SPBU Bumi Putra", "Kapongan", -7.692470528461476, 114.0526897257424, "SPBU+LPG"],
+            ["SPBU Mitra Putra", "Panji", -7.702634597293347, 114.01644643181598, "SPBU+LPG"],
+            ["SPBU Graha Abadi", "Situbondo", -7.708722382296338, 113.9869381052842, "SPBU"],
+            ["SPBU Pelita Sentral", "Situbondo", -7.7212473632585015, 114.01290549887275, "SPBU+LPG"],
+            ["SPBU Karya Makmur", "Situbondo", -7.744525077149933, 114.00920690503293, "SPBU+LPG"],
+            ["SPBU Sentosa Perkasa", "Panarukan", -7.69948255350714, 113.95000755788617, "SPBU+LPG"],
+            ["SPBU Dwi Mandiri", "Kendit", -7.702773016682775, 113.92086641806793, "SPBU+LPG"],
+            ["SPBU Jaya Sakti", "Bungatan", -7.6860018164388775, 113.84575027393967, "SPBU+LPG"],
+            ["SPBU Tri Energi", "Suboh", -7.7335617376179435, 113.73888713884598, "SPBU+LPG"],
+            ["SPBU Pelita Agung", "Banyuglugur", -7.7355557625320905, 113.67872019263125, "SPBU"],
+            ["SPPBE Sentosa Sentral", "Banyuglugur", -7.724465475173304, 113.62025270354367, "SPPBE"],
+          ],
+          "Probolinggo": [
+            ["SPBU Berkah Permai", "Paiton", -7.71804722399329, 113.52787290970848, "SPBU"],
+            ["SPBU Artha Jaya", "Paiton", -7.7243715896468075, 113.48866857607958, "SPBU+LPG"],
+            ["SPBU Citra Permai", "Kraksaan", -7.748403710257895, 113.4486009505055, "SPBU+LPG"],
+            ["SPBU Sinar Mulya", "Kraksaan", -7.761977097113269, 113.40005026867267, "SPBU"],
+            ["SPBU Harapan Putra", "Pajarakan", -7.788025447528841, 113.33820302935536, "SPBU"],
+            ["SPBU Karya Indah", "Gending", -7.793181734288814, 113.29856399952584, "SPBU+LPG"],
+            ["SPBU Bintang Sakti", "Mayangan", -7.753605328621049, 113.20101742207079, "SPBU"],
+            ["SPPBE Dwi Utama", "Tongas", -7.731504243791255, 113.1084208616107, "SPPBE"],
+            ["SPBU Harapan Barokah", "Tongas", -7.720632686030209, 113.0873023590229, "SPBU+LPG"],
+          ],
+          "Lumajang": [
+            ["SPBU Dwi Indah", "Klakah", -7.959174476488481, 113.25731182219715, "SPBU"],
+            ["SPBU Surya Sejahtera", "Klakah", -7.984838837091098, 113.25056823825608, "SPBU+LPG"],
+            ["SPBU Maju Sejahtera", "Klakah", -8.01540393733869, 113.24029995030152, "SPBU+LPG"],
+            ["SPBU Mitra Indah", "Kedungjajang", -8.079750094623611, 113.24128529089145, "SPBU"],
+            ["SPBU Bumi Raya", "Pasirian", -8.225292170656001, 113.14202209959922, "SPBU+LPG"],
+            ["SPBU Berkah Energi", "Pasirian", -8.221554451508524, 113.12013527398952, "SPBU"],
+            ["SPPBE Bintang Persada", "Randuagung", -8.106054737322522, 113.273870525904, "SPPBE"],
+          ],
+          "Jember": [
+            ["SPBU Cahaya Raya", "Sumberbaru", -8.12602447681533, 113.37735596463881, "SPBU"],
+            ["SPPBE Gemilang Jaya", "Bangsalsari", -8.201788029948226, 113.54421650766884, "SPPBE"],
+            ["SPPBE Rejeki Makmur", "Rambipuji", -8.207414602194012, 113.59684736230847, "SPPBE"],
+            ["SPBU Lestari Perkasa", "Patrang", -8.135041882838788, 113.73769446631213, "SPBU+LPG"],
+            ["SPBU Sentosa Sejahtera", "Arjasa", -8.116038965729654, 113.7488839410885, "SPBU"],
+            ["SPBU Dwi Bersama", "Jelbuk", -8.052702061570645, 113.77586882038514, "SPBU+LPG"],
+            ["SPBU Tunas Prima", "Silo", -8.204982773686227, 113.89088385186821, "SPBU"],
+            ["SPBU Rejeki Agung", "Silo", -8.18037514625522, 113.86469094564707, "SPBU"],
+            ["SPBU Rejeki Jaya", "Mayang", -8.171198500550904, 113.79338318382995, "SPBU+LPG"],
+            ["SPBU Sumber Indah", "Pakusari", -8.188236374031382, 113.75368958408079, "SPBU+LPG"],
+            ["SPBU Graha Prima", "Kaliwates", -8.173486937179996, 113.70390615481276, "SPBU"],
+          ],
+          "Bondowoso": [
+            ["SPBU Berkah Perkasa", "Maesan", -8.034436845304471, 113.77606761768567, "SPBU"],
+            ["SPBU Sinar Prima", "Bondowoso", -7.938899311909135, 113.81248824715581, "SPBU"],
+            ["SPBU Pelita Perkasa", "Bondowoso", -7.921157379464293, 113.82724284650624, "SPBU+LPG"],
+            ["SPPBE Artha Barokah", "Bondowoso", -7.906216226674293, 113.80851988725328, "SPPBE"],
+            ["SPBU Sumber Raya", "Tapen", -7.874276116225654, 113.91481022327272, "SPBU+LPG"],
+            ["SPBU Artha Makmur", "Klabang", -7.818104679730761, 113.96551690628662, "SPBU"],
+          ],
+          "Malang": [
+            ["SPBU Maju Putra", "Blimbing", -7.952476328295437, 112.63932311534481, "SPBU"],
+            ["SPBU Tri Indah", "Lowokwaru", -7.938252412363456, 112.62846958544084, "SPBU+LPG"],
+            ["SPBU Bintang Utama", "Blimbing", -7.920650804371876, 112.6524398242814, "SPBU"],
+            ["SPBU Tri Abadi", "Blimbing", -7.933282167406489, 112.65857144315389, "SPBU+LPG"],
+            ["SPBU Mitra Perkasa", "Klojen", -7.941995522265401, 112.64936610179652, "SPBU"],
+            ["SPBU Tri Agung", "Klojen", -7.977909804364812, 112.62402718290913, "SPBU"],
+            ["SPBU Harapan Bersama", "Sukun", -7.986254576402634, 112.6267337310274, "SPBU+LPG"],
+            ["SPPBE Gemilang Mandiri", "Turen", -8.184749837491445, 112.69912133689195, "SPPBE"],
+            ["SPBU Rejeki Prima", "Lowokwaru", -7.920723241128588, 112.59513356576021, "SPBU+LPG"],
+          ],
+          "Blitar": [
+            ["SPBU Jaya Agung", "Sananwetan", -8.082120679466417, 112.19563680453211, "SPBU"],
+            ["SPBU Sinar Utama", "Sananwetan", -8.089780580201722, 112.18557028183815, "SPBU+LPG"],
+            ["SPBU Berkah Abadi", "Kepanjenkidul", -8.094810287041833, 112.17542298416245, "SPBU+LPG"],
+            ["SPPBE Sentosa Abadi", "Kepanjenkidul", -8.09079781663393, 112.17046868573645, "SPPBE"],
+            ["SPBU Karya Mandiri", "Sukorejo", -8.088814147495968, 112.15507813339366, "SPBU+LPG"],
+            ["SPBU Sumber Energi", "Sukorejo", -8.09849470271439, 112.14535297286626, "SPBU+LPG"],
+            ["SPBU Tirta Agung", "Sukorejo", -8.112519199287798, 112.15603222842294, "SPBU"],
+            ["SPBU Tri Sentral", "Kepanjenkidul", -8.113965531147933, 112.16444311725606, "SPBU"],
+            ["SPBU Citra Raya", "Sukorejo", -8.122167501896476, 112.1534392311424, "SPBU+LPG"],
+            ["SPPBE Karya Abadi", "Kademangan", -8.134963322444031, 112.13402963851546, "SPPBE"],
+            ["SPBU Bintang Mulya", "Bendo", -8.082841284980976, 112.12123314660079, "SPBU"],
+            ["SPBU Surya Permai", "Srengat", -8.064917621473002, 112.09501451558707, "SPBU"],
+          ],
+          "Kediri": [
+            ["SPBU Sinar Agung", "Gampengrejo", -7.753866804198056, 112.03240126662665, "SPBU"],
+            ["SPBU Tunas Mandiri", "Gampengrejo", -7.778296332897353, 112.01677088836298, "SPBU+LPG"],
+            ["SPBU Nusa Abadi", "Banyakan", -7.774166628257126, 111.98696962461473, "SPBU"],
+            ["SPBU Lestari Prima", "Kota", -7.802413141390284, 112.03528318734732, "SPBU+LPG"],
+            ["SPBU Cahaya Makmur", "Grogol", -7.841563860342133, 112.03051202742922, "SPBU"],
+            ["SPPBE Maju Persada", "Ngadiluwih", -7.871475467355005, 112.00044818475507, "SPPBE"],
+            ["SPBU Cahaya Sakti", "Pesantren", -7.865679308705777, 112.02870011270608, "SPBU+LPG"],
+          ],
+          "Mojokerto": [
+            ["SPBU Harapan Makmur", "Bangsal", -7.497676921774949, 112.47960869004551, "SPBU"],
+            ["SPPBE Harapan Perkasa", "Mojoanyar", -7.492589631197489, 112.44998280914962, "SPPBE"],
+            ["SPBU Rejeki Sentral", "Magersari", -7.487325859581721, 112.44897859476829, "SPBU"],
+            ["SPBU Rejeki Sakti", "Mojosari", -7.45546539926269, 112.45946206400471, "SPBU"],
+            ["SPBU Tunas Energi", "Magersari", -7.463378446643327, 112.4581528208969, "SPBU"],
+            ["SPBU Gemilang Permai", "Gedek", -7.456423911579512, 112.39692410707882, "SPBU+LPG"],
+            ["SPBU Tirta Putra", "Sooko", -7.5277883335162175, 112.41136701093784, "SPBU+LPG"],
+            ["SPBU Maju Barokah", "Sooko", -7.512063467539992, 112.42873875997518, "SPBU+LPG"],
+            ["SPBU Anugerah Prima", "Prajurit Kulon", -7.462187513251722, 112.43980046819178, "SPBU+LPG"],
+          ],
+          "Surabaya & Sidoarjo (Hub Perak)": [
+            ["SPBU Mitra Bersama", "Candi", -7.493540070914927, 112.71056362975742, "SPBU"],
+            ["SPBU Lestari Sejahtera", "Sidoarjo", -7.470377859903423, 112.71412258155684, "SPBU+LPG"],
+            ["SPBU Sumber Bersama", "Sidoarjo", -7.441228698348478, 112.72015514267518, "SPBU+LPG"],
+            ["SPBU Harapan Sejahtera", "Buduran", -7.4139326791043745, 112.72514305162798, "SPBU"],
+            ["SPBU Artha Persada", "Gedangan", -7.3950375641312345, 112.72718341571733, "SPBU"],
+            ["SPPBE Citra Sakti", "Gedangan", -7.372119505169364, 112.72869559173233, "SPPBE"],
+            ["SPBU Sumber Sejahtera", "Sukodono", -7.397158355058913, 112.69836471444755, "SPBU"],
+            ["SPBU Mitra Mulya", "Tulangan", -7.444449880883604, 112.69161289683628, "SPBU"],
+            ["SPBU Bintang Indah", "Sidoarjo", -7.449643623470262, 112.67416568000736, "SPBU+LPG"],
+            ["SPPBE Dwi Prima", "Sukodono", -7.417648927080391, 112.69406685331379, "SPPBE"],
+            ["SPBU Graha Persada", "Sukodono", -7.402870567751259, 112.67259352690449, "SPBU"],
+            ["SPPBE Cahaya Energi", "Taman", -7.378895308076, 112.62793677342927, "SPPBE"],
+            ["SPBU Graha Energi", "Taman", -7.37135612465705, 112.64788479572744, "SPBU+LPG"],
+            ["SPBU Sinar Raya", "Dukuh Pakis", -7.284377443769625, 112.69115143199485, "SPBU"],
+            ["SPBU Anugerah Mandiri", "Gayungan", -7.333925761385721, 112.72952822381326, "SPBU+LPG"],
+            ["SPBU Rejeki Sejahtera", "Wonokromo", -7.306442110948681, 112.76010200849493, "SPBU+LPG"],
+            ["SPBU Makmur Indah", "Wonokromo", -7.296473894654297, 112.74248225889932, "SPBU+LPG"],
+            ["SPBU Tirta Jaya", "Bulak", -7.241788873411768, 112.75734648777065, "SPBU+LPG"],
+            ["SPBU Artha Permai", "Bubutan", -7.245393889306864, 112.72945838513573, "SPBU"],
+            ["SPBU Lestari Raya", "Mulyorejo", -7.278331200633965, 112.80764027846524, "SPBU"],
+          ],
+          "Pamekasan": [
+            ["SPBU Berkah Prima", "Pasean", -6.8959543182628, 113.53673715020456, "SPBU"],
+            ["SPBU Pelita Mandiri", "Pamekasan", -7.204370241702016, 113.46875800587333, "SPBU"],
+            ["SPPBE Bumi Energi", "Larangan", -7.12523096966495, 113.49927529513049, "SPPBE"],
+            ["SPBU Citra Indah", "Sampang", -7.217576160801571, 113.3101585362846, "SPBU+LPG"],
+            ["SPBU Tunas Mulya", "Sampang", -7.182439123619356, 113.23448213869034, "SPBU+LPG"],
+            ["SPBU Anugerah Mulya", "Torjun", -7.11904664174456, 113.11738985540167, "SPBU+LPG"],
+            ["SPBU Lestari Putra", "Jrengik", -7.095939212707637, 113.10900944195399, "SPBU"],
+            ["SPBU Harapan Indah", "Blega", -7.125876995757557, 112.99040924652039, "SPBU"],
+            ["SPBU Jaya Energi", "Tanah Merah", -7.070264909212006, 112.82706372656003, "SPBU"],
+            ["SPBU Sentosa Permai", "Bangkalan", -7.000862943805464, 112.77481041625933, "SPBU+LPG"],
+            ["SPPBE Cahaya Perkasa", "Bangkalan", -7.043938187670988, 112.73787511899113, "SPPBE"],
+          ],
+          "Lamongan": [
+            ["SPBU Citra Prima", "Deket", -7.122784720744675, 112.46992449389653, "SPBU"],
+            ["SPBU Tirta Barokah", "Deket", -7.115163471211121, 112.43241609453358, "SPBU"],
+            ["SPBU Pelita Mulya", "Lamongan", -7.131163157413038, 112.41366004489822, "SPBU+LPG"],
+            ["SPBU Harapan Utama", "Lamongan", -7.119471772886261, 112.4058202069319, "SPBU"],
+            ["SPBU Mitra Agung", "Lamongan", -7.104235396776595, 112.37943784699915, "SPBU+LPG"],
+            ["SPBU Artha Mandiri", "Sukodadi", -7.096091051303827, 112.34108464291751, "SPBU"],
+            ["SPPBE Mulia Raya", "Babat", -7.100168020321461, 112.23295442671652, "SPPBE"],
+            ["SPBU Anugerah Raya", "Sugio", -7.155421611843022, 112.29847722406653, "SPBU+LPG"],
+          ],
+          "Tuban & Bojonegoro (Area Kilang Utama)": [
+            ["SPBU Anugerah Abadi", "Palang", -6.899747517864766, 112.15550988393124, "SPBU"],
+            ["SPBU Maju Jaya", "Palang", -6.900131841810727, 112.1157957708352, "SPBU"],
+            ["SPBU Mulia Prima", "Semanding", -6.9341914794489075, 112.09657402022597, "SPBU+LPG"],
+            ["SPBU Berkah Sakti", "Semanding", -6.970485012676109, 112.1029324858656, "SPBU+LPG"],
+            ["SPBU Mulia Persada", "Tuban", -6.906286579726952, 112.0725211922847, "SPBU+LPG"],
+            ["SPBU Berkah Makmur", "Tuban", -6.90332475768272, 112.08016058937706, "SPBU"],
+            ["SPBU Anugerah Sentral", "Jenu", -6.894446858351522, 112.03936043631197, "SPBU+LPG"],
+            ["SPPBE Anugerah Barokah", "Jenu", -6.851187240246499, 112.0201826484226, "SPPBE"],
+            ["SPBU Anugerah Jaya", "Jenu", -6.820693842759729, 111.966510408243, "SPBU"],
+            ["SPBU Harapan Energi", "Sumberrejo", -7.1773961197678515, 112.00019713529282, "SPBU+LPG"],
+            ["SPBU Bintang Perkasa", "Balen", -7.184421857161076, 111.98477915342433, "SPBU"],
+            ["SPBU Rejeki Mulya", "Balen", -7.193634238535473, 111.95636553432855, "SPBU"],
+            ["SPBU Dwi Sejahtera", "Kapas", -7.191363403320852, 111.92165026390406, "SPBU"],
+            ["SPPBE Lestari Barokah", "Kapas", -7.173442807617903, 111.89882292464789, "SPPBE"],
+            ["SPPBE Cahaya Sejahtera", "Kalitidu", -7.144840006750923, 111.8271791101463, "SPPBE"],
+            ["SPBU Bintang Prima", "Kalitidu", -7.129689283041766, 111.77891776832804, "SPBU+LPG"],
+            ["SPBU Makmur Jaya", "Kalitidu", -7.130824595590851, 111.74058528209775, "SPBU+LPG"],
+          ],
+          "Madiun": [
+            ["SPBU Sumber Perkasa", "Madiun", -7.593196438933991, 111.5375604211456, "SPBU"],
+            ["SPBU Surya Indah", "Sawahan", -7.608946734922007, 111.5512998168929, "SPBU+LPG"],
+            ["SPBU Nusa Raya", "Manguharjo", -7.610705573600822, 111.50952855210559, "SPBU"],
+            ["SPBU Berkah Sejahtera", "Jiwan", -7.625320452724023, 111.49804248824304, "SPBU+LPG"],
+            ["SPBU Karya Jaya", "Kartoharjo", -7.62415383546858, 111.53445720716398, "SPBU+LPG"],
+            ["SPPBE Lestari Bersama", "Jiwan", -7.6185910901119565, 111.4833893754554, "SPPBE"],
+            ["SPBU Tunas Abadi", "Wungu", -7.556949999311984, 111.55066076409987, "SPBU"],
+          ],
+          "Surakarta (Solo)": [
+            ["SPBU Tunas Barokah", "Jebres", -7.564881625163938, 110.85787282082991, "SPBU"],
+            ["SPBU Bumi Jaya", "Jebres", -7.559281712678663, 110.84865824028455, "SPBU+LPG"],
+            ["SPBU Sentosa Indah", "Jebres", -7.544054516138469, 110.83995633241007, "SPBU"],
+            ["SPBU Rejeki Bersama", "Banjarsari", -7.545586804994716, 110.8072886273435, "SPBU+LPG"],
+            ["SPBU Harapan Prima", "Banjarsari", -7.554041162206177, 110.79863581942129, "SPBU"],
+            ["SPPBE Bumi Sentral", "Laweyan", -7.562667544870707, 110.7921889562708, "SPPBE"],
+            ["SPBU Bumi Prima", "Kartasura", -7.561042161265418, 110.76459211370204, "SPBU"],
+            ["SPBU Bumi Mulya", "Banjarsari", -7.531197966072241, 110.81896616657295, "SPBU+LPG"],
+            ["SPBU Sentosa Jaya", "Colomadu", -7.53467061868513, 110.79239063576549, "SPBU+LPG"],
+          ],
+        };
+        (function applySpbuReal() {
+            const pfxOf = r => (r.list_spbu[0] && r.list_spbu[0].kode.split('-').slice(0, 2).join('-')) || 'JT-000';
+            const usedKode = new Set(); rawSpbuData.forEach(r => r.list_spbu.forEach(x => usedKode.add(x.kode)));
+            rawSpbuData.forEach(region => {
+                const real = SPBU_REAL[region.kabupaten_kota];
+                if (!real) return; // wilayah yang tidak ada di data baru (mis. Ngawi, kota luar Jatim) tidak diubah
+                const oldList = region.list_spbu, pfx = pfxOf(region);
+                const nextKode = () => { let n = 50; while (usedKode.has(`${pfx}-${n}`)) n++; const k = `${pfx}-${n}`; usedKode.add(k); return k; };
+                region.list_spbu = real.map(([nama, kecamatan, lat, lon, jenis], i) => ({
+                    kode: oldList[i] ? oldList[i].kode : nextKode(),
+                    nama, kecamatan, lat, lon, jenis,
+                    tipe: i === 0 ? 'COCO' : 'DODO'
+                }));
+                region.total_spbu = region.list_spbu.length;
+            });
+        })();
+
         // Depo/TBBM regional (dibeli pemain, jadi titik berangkat truk terdekat)
-        refineryData.push(...[['TBBM Plumpang Jakarta',-6.1216,106.8967,25e9,'JKb'],['TBBM Tanjung Emas Semarang',-6.949,110.426,18e9,'SMb'],['TBBM Padalarang Bandung',-6.84,107.48,15e9,null],['TBBM Manggis Bali',-8.5,115.52,18e9,'MGb'],['TBBM Bitung Sulut',1.45,125.19,16e9,'BTb'],['TBBM Donggala Sulteng',-0.66,119.74,15e9,'DGb'],['Depo Mamuju Sulbar',-2.67,118.89,12e9,'MMb'],['TBBM Balikpapan Kaltim',-1.27,116.8,22e9,'BPb'],['TBBM Banjarmasin Kalsel',-3.29,114.57,15e9,'BJb'],['TBBM Pontianak Kalbar',-0.04,109.32,15e9,'PTb'],['Depo Palangka Raya Kalteng',-2.25,113.9,12e9,null],['Depo Tarakan Kaltara',3.31,117.62,14e9,'TKb'],['TBBM Makassar Sulsel',-5.14,119.43,20e9,'MKb'],['TBBM Ketapang Banyuwangi',-8.14,114.39,20e9,'KTb']]
+        refineryData.push(...[['TBBM Plumpang Jakarta',-6.1216,106.8967,25e9,'JKb'],['TBBM Tanjung Emas Semarang',-6.949,110.426,18e9,'SMb'],['TBBM Padalarang Bandung',-6.84,107.48,15e9,null],['TBBM Manggis Bali',-8.5,115.52,18e9,'MGb'],['TBBM Bitung Sulut',1.45,125.19,16e9,'BTb'],['TBBM Donggala Sulteng',-0.66,119.74,15e9,'DGb'],['Depo Mamuju Sulbar',-2.67,118.89,12e9,'MMb'],['TBBM Balikpapan Kaltim',-1.27,116.8,22e9,'BPb'],['TBBM Banjarmasin Kalsel',-3.29,114.57,15e9,'BJb'],['TBBM Pontianak Kalbar',-0.04,109.32,15e9,'PTb'],['Depo Palangka Raya Kalteng',-2.25,113.9,12e9,null],['Depo Tarakan Kaltara',3.31,117.62,14e9,'TKb'],['TBBM Makassar Sulsel',-5.14,119.43,20e9,'MKb'],['TBBM Ketapang Banyuwangi',-8.134972996171921,114.39943366088116,20e9,'KTb']]
             .map((d, i) => ({ id: 'KILANG-' + String(4 + i).padStart(2, '0'), nama: d[0], tipe: 'Depo Cabang BBM', lat: d[1], lon: d[2], berth: d[4], is_unlocked: false, stok_current: 0, stok_max: 100000, unit: 'Bbl', harga_beli: d[3] * 2, mekanikId: null })));
 
         // TBBM Ketapang Banyuwangi (KILANG-17) melayani BBM sekaligus LPG (unit gauge tetap Bbl untuk BBL mentah).
@@ -46,7 +267,7 @@
             pertamax_turbo: { label: 'Pertamax Turbo', unit: 'KL',  icon: 'fa-bolt',           color: '#a855f7', step: 1500, baseCost: 1100e6, refineRatio: ECO.bblPerKl, refineRate: 18 },
             solar:          { label: 'Solar',          unit: 'KL',  icon: 'fa-oil-can',        color: '#f59e0b', step: 3000, baseCost: 850e6,  refineRatio: ECO.bblPerKl, refineRate: 40 },
             dexlite:        { label: 'Dexlite',        unit: 'KL',  icon: 'fa-oil-can',        color: '#06b6d4', step: 2000, baseCost: 1000e6, refineRatio: ECO.bblPerKl, refineRate: 22 },
-            lpg_curah:      { label: 'LPG Curah',      unit: 'Ton', icon: 'fa-truck-ramp-box', color: '#f97316', step: 1500, baseCost: 1200e6 },   // harga beli LPG Curah dinamis: lpgCurahPrice() di 04a-pasar-harga.js
+            lpg_curah:      { label: 'LPG Curah',      unit: 'Ton', icon: 'fa-truck-ramp-box', color: '#f97316', step: 5250, baseCost: 4200e6 },   // upgrade tangki ikut skala 3,5x (1.500 -> 5.250 Ton/level, Rp 1,2 M -> 4,2 M) supaya biaya per Ton kapasitas tetap Rp 800 rb. Harga beli LPG Curah dinamis: lpgCurahPrice() di 04a-pasar-harga.js
             lpg_tabung:     { label: 'LPG Tabung',     unit: 'Ton', icon: 'fa-dolly',          color: '#ef4444', step: 1200, baseCost: 1050e6 }
         };
         // Ukuran sekali klik tombol "Konversi BBL -> BBM" (BBL diolah manual lewat tombol, bukan otomatis lagi).
@@ -58,8 +279,10 @@
             'Depo Cabang LPG': ['lpg_curah', 'lpg_tabung'],
             'Depo Cabang BBM & LPG': ['pertalite', 'pertamax', 'pertamax_turbo', 'solar', 'dexlite', 'lpg_curah', 'lpg_tabung']
         };
-        // Tangki LPG (curah & tabung): Tuban 200.000 Ton, depo cabang = 50% Tuban (100.000 Ton). Stok awal Tuban: LPG Curah 100.000 Ton, LPG Tabung 6.000 Ton (bukan penuh).
-        const LPG_TUBAN_MAX0 = 200000, LPG_DEPO_MAX0 = Math.round(LPG_TUBAN_MAX0 * DEPO_BBL_RATIO), LPG_TUBAN_START_STOK = 6000, LPG_CURAH_START_STOK = 100000, BBM_TUBAN_START_STOK = 5000; // BBM_TUBAN_START_STOK = stok awal tiap jenis BBM jadi di Tuban (KL); kapasitas tangki tetap 40.000
+        // Tangki LPG Tabung: Tuban 200.000 Ton, depo cabang 100.000 Ton. Tangki LPG Curah: Tuban 700.000 Ton, depo cabang 350.000 Ton. Stok awal Tuban: LPG Curah 560.000 Ton (80% tangki), LPG Tabung 6.000 Ton (bukan penuh).
+        const LPG_TUBAN_MAX0 = 200000, LPG_DEPO_MAX0 = Math.round(LPG_TUBAN_MAX0 * DEPO_BBL_RATIO), LPG_TUBAN_START_STOK = 6000,
+              LPG_CURAH_TUBAN_MAX0 = 700000, LPG_CURAH_DEPO_MAX0 = Math.round(LPG_CURAH_TUBAN_MAX0 * DEPO_BBL_RATIO), LPG_CURAH_START_STOK = Math.round(LPG_CURAH_TUBAN_MAX0 * 0.8),   // tangki LPG CURAH: Tuban 700.000 Ton, depo cabang 50% (350.000 Ton), stok awal 80% (560.000 Ton). LPG Tabung tetap memakai LPG_TUBAN_MAX0/LPG_DEPO_MAX0
+              BBM_TUBAN_START_STOK = 5000; // BBM_TUBAN_START_STOK = stok awal tiap jenis BBM jadi di Tuban (KL); kapasitas tangki tetap 40.000
         function initKapasitasDepo() {
             refineryData.forEach(k => {
                 if (k.kap) return;
@@ -67,11 +290,12 @@
                 k.kap = {};
                 keys.forEach(key => {
                     const isLpg = key.startsWith('lpg');
-                    const startMax = k.tipe === 'Pusat Utama' ? (isLpg ? LPG_TUBAN_MAX0 : 40000) : (isLpg ? LPG_DEPO_MAX0 : 15000);
+                    const curah = key === 'lpg_curah';
+                    const startMax = k.tipe === 'Pusat Utama' ? (curah ? LPG_CURAH_TUBAN_MAX0 : isLpg ? LPG_TUBAN_MAX0 : 40000) : (curah ? LPG_CURAH_DEPO_MAX0 : isLpg ? LPG_DEPO_MAX0 : 15000);
                     k.kap[key] = { max: startMax, cur: 0, level: 0 };
                 });
                 if (k.id === 'KILANG-01') {
-                    // Awal main: BBM jadi Tuban 5.000 KL per jenis, LPG curah 100.000 Ton, LPG tabung 6.000 Ton (bukan penuh).
+                    // Awal main: BBM jadi Tuban 5.000 KL per jenis, LPG curah 560.000 Ton (80% tangki), LPG tabung 6.000 Ton (bukan penuh).
                     Object.entries(k.kap).forEach(([key, s]) => { s.cur = key === 'lpg_curah' ? Math.min(s.max, LPG_CURAH_START_STOK) : key.startsWith('lpg') ? Math.min(s.max, LPG_TUBAN_START_STOK) : Math.min(s.max, BBM_TUBAN_START_STOK); });
                 }
             });

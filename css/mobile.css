@@ -68,8 +68,26 @@
     /* Aside tidak lagi butuh tinggi 60vh, karena menu tab sudah lepas jadi bottom bar */
     #left-aside{ max-height: none; }
 
-    /* Beri jarak bawah supaya baris/tombol terakhir tidak ketutup bottom nav */
-    #tab-popup-body, #tab-content-panel{ padding-bottom: 84px; }
+    /* FIX: kartu/panel menutupi bottom nav & sebaliknya.
+       Bottom nav itu position:fixed (tidak makan ruang di layout), jadi konten di wadah utama
+       (peta, kartu log aktivitas, panel tab) turun sampai ke belakangnya. Solusi: wadah utama
+       yang scroll diberi padding-bawah setinggi bottom nav + safe-area, sehingga seluruh kartu
+       berhenti tepat di atas nav dan bisa di-scroll sampai habis. */
+    :root{ --bottom-nav-h: 66px; }
+    html, body{ height: 100%; }
+    body{ height: 100vh; height: 100dvh; }   /* 100vh di browser HP lebih tinggi dari area terlihat */
+    #workspace-grid{
+        padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px));
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+    }
+    /* Ruang bawah sekarang sudah dijatah wadah utama, jadi padding ganda 84px tidak diperlukan lagi */
+    #tab-popup-body, #tab-content-panel{ padding-bottom: 1rem; }
+    /* Panel tab inline: jangan lebih tinggi dari ruang yang tersedia di atas nav */
+    #tab-panel-inline{ min-height: 55vh; }
+    /* Banner jeda yang menempel di bawah layar naik di atas nav */
+    #main-map-area{ min-height: 70vh; min-height: 70dvh; }
+    #pause-banner{ bottom: calc(var(--bottom-nav-h) + 10px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ---------- 2) Header: dirapatkan & tombol jadi ikon saja (gaya app HP) ---------- */
